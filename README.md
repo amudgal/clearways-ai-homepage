@@ -51,6 +51,15 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
    - Publish directory: `dist`
 4. Deploy!
 
+### Custom Domain: www.clearways.ai
+See [CUSTOM_DOMAIN_SETUP.md](./CUSTOM_DOMAIN_SETUP.md) for step-by-step instructions to configure `www.clearways.ai`.
+
+**Quick Setup:**
+1. Deploy site to Netlify (see above)
+2. Add custom domain `www.clearways.ai` in Netlify Dashboard
+3. Configure DNS CNAME record at your DNS provider
+4. Wait for DNS propagation (1-4 hours typically)
+
 ## 🛠️ Tech Stack
 
 - **React 18** - UI framework
