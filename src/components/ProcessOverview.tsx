@@ -38,7 +38,7 @@ export default function ProcessOverview() {
             <div key={index} className="relative">
               <div className="flex flex-col items-center text-center">
                 <div className="mb-4">
-                  <div className="w-16 h-16 bg-[#17A2B8] rounded-full flex items-center justify-center">
+                  <div className="w-16 h-16 bg-[#17A2B8] rounded-full flex items-center justify-center relative z-10">
                     <step.icon className="w-8 h-8 text-white" />
                   </div>
                 </div>
@@ -51,7 +51,14 @@ export default function ProcessOverview() {
 
               {/* Connector Line */}
               {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-8 left-full w-full h-0.5 bg-gray-300 -ml-4 z-0" />
+                <div 
+                  className="hidden lg:block absolute h-0.5 bg-gray-300 z-0" 
+                  style={{ 
+                    top: '3rem',
+                    left: 'calc(50% + 2rem)',
+                    width: 'calc(100% - 2rem)'
+                  }} 
+                />
               )}
             </div>
           ))}
