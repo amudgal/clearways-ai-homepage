@@ -2,8 +2,16 @@
   command = "npm run build"
   publish = "dist"
 
+# SPA routing - all routes redirect to index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Optional: Redirect apex domain to www (uncomment if needed)
+# [[redirects]]
+#   from = "https://clearways.ai/*"
+#   to = "https://www.clearways.ai/:splat"
+#   status = 301
+#   force = true
 
