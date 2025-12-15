@@ -966,15 +966,16 @@ export default function AnalysisForm() {
       return defaultRows;
     }
     // Merge defaults with existing, preserving existing rows
-    // For cost values, always use the calculated default value to ensure accuracy
+    // For cost values, ALWAYS use the calculated default value to ensure accuracy and match subtotals
     const merged = defaultRows.map((defaultRow, index) => {
       const existingRow = existing.find(r => r.id === defaultRow.id) || existing[index];
       if (existingRow) {
         return {
           ...defaultRow,
           costLabel: existingRow.costLabel || defaultRow.costLabel,
-          // Always use calculated costValue from defaults to ensure it matches the subtotal
-          costValue: defaultRow.costValue,
+          // CRITICAL: Always use calculated costValue from defaults (never from existing stored values)
+          // This ensures individual costs always match the subtotal calculation
+          costValue: defaultRow.costValue, // This is already formatted from formatCostValue(costs.currentState.mstrLicensing)
           natureOfCosts: existingRow.natureOfCosts || defaultRow.natureOfCosts,
           costSensitivity: existingRow.costSensitivity || defaultRow.costSensitivity,
           confidenceScore: existingRow.confidenceScore || defaultRow.confidenceScore,
@@ -983,6 +984,15 @@ export default function AnalysisForm() {
       }
       return defaultRow;
     });
+    
+    // Update stored rows with correct cost values to prevent stale data
+    setEditableContent(prev => ({
+      ...prev,
+      costRows: {
+        ...prev.costRows,
+        [tableId]: merged,
+      },
+    }));
     // Add any extra rows that were added but aren't in defaults
     const extraRows = existing.filter(r => !defaultRows.find(dr => dr.id === r.id));
     return [...merged, ...extraRows];
@@ -1138,7 +1148,7 @@ export default function AnalysisForm() {
               <div className="text-lg text-gray-900">
                 {row.costValue.startsWith('Impact:') || row.costValue.includes('%') 
                   ? row.costValue 
-                  : `$${formatCostValue(row.costValue)}`}
+                  : `$${row.costValue}`}
               </div>
             </div>
           )}
