@@ -1,13 +1,23 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
-import logo from 'figma:asset/bc8e51a0b2cc6939233324ed738db70e42faed93.png';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, LogIn, LogOut, Settings, FileText } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import logo from 'figma:asset/bc56b2cd1a0b77abaa55ba2f68f90ef6c8e0ef44.png';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
+  const isHomePage = location.pathname === '/';
+  const isLoginPage = location.pathname === '/login';
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -39,6 +49,54 @@ export default function Header() {
             >
               About Us
             </Link>
+            {/* Show Login on home page, Logout on other pages, nothing on login page */}
+            {!isLoginPage && (
+              <>
+                {isHomePage ? (
+                  <Link
+                    to="/login"
+                    className="transition-colors flex items-center gap-2 text-gray-700 hover:text-[#17A2B8]"
+                  >
+                    <LogIn size={18} />
+                    Login
+                  </Link>
+                ) : (
+                  <>
+                    {user?.role === 'ADMIN' && (
+                      <div className="flex items-center gap-4">
+                        <Link
+                          to="/dashboard"
+                          className="transition-colors flex items-center gap-2 text-gray-700 hover:text-[#17A2B8]"
+                        >
+                          <FileText size={18} />
+                          Analyses
+                        </Link>
+                        <Link
+                          to="/admin/tenants"
+                          className="transition-colors text-gray-700 hover:text-[#17A2B8]"
+                        >
+                          Tenants
+                        </Link>
+                        <Link
+                          to="/admin/pricing/table"
+                          className="transition-colors flex items-center gap-2 text-gray-700 hover:text-[#17A2B8]"
+                        >
+                          <Settings size={18} />
+                          Pricing
+                        </Link>
+                      </div>
+                    )}
+                    <button
+                      onClick={handleLogout}
+                      className="transition-colors flex items-center gap-2 text-gray-700 hover:text-[#17A2B8]"
+                    >
+                      <LogOut size={18} />
+                      Logout
+                    </button>
+                  </>
+                )}
+              </>
+            )}
             <Link
               to="/contact"
               className="bg-[#17A2B8] text-white px-6 py-2 rounded hover:bg-[#138C9E] transition-colors"
@@ -78,6 +136,61 @@ export default function Header() {
               >
                 About Us
               </Link>
+              {/* Show Login on home page, Logout on other pages, nothing on login page */}
+              {!isLoginPage && (
+                <>
+                  {isHomePage ? (
+                    <Link
+                      to="/login"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-2 text-gray-700"
+                    >
+                      <LogIn size={18} />
+                      Login
+                    </Link>
+                  ) : (
+                    <>
+                      {user?.role === 'ADMIN' && (
+                        <>
+                          <Link
+                            to="/dashboard"
+                            onClick={() => setIsMenuOpen(false)}
+                            className="flex items-center gap-2 text-gray-700"
+                          >
+                            <FileText size={18} />
+                            Analyses
+                          </Link>
+                          <Link
+                            to="/admin/tenants"
+                            onClick={() => setIsMenuOpen(false)}
+                            className="text-gray-700"
+                          >
+                            Tenants
+                          </Link>
+                          <Link
+                            to="/admin/pricing/table"
+                            onClick={() => setIsMenuOpen(false)}
+                            className="flex items-center gap-2 text-gray-700"
+                          >
+                            <Settings size={18} />
+                            Pricing
+                          </Link>
+                        </>
+                      )}
+                      <button
+                        onClick={() => {
+                          handleLogout();
+                          setIsMenuOpen(false);
+                        }}
+                        className="flex items-center gap-2 text-gray-700"
+                      >
+                        <LogOut size={18} />
+                        Logout
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
               <Link
                 to="/contact"
                 onClick={() => setIsMenuOpen(false)}

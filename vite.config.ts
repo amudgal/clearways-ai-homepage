@@ -17,8 +17,8 @@
         'next-themes@0.4.6': 'next-themes',
         'lucide-react@0.487.0': 'lucide-react',
         'input-otp@1.4.2': 'input-otp',
-        'figma:asset/bc8e51a0b2cc6939233324ed738db70e42faed93.png': path.resolve(__dirname, './src/assets/bc8e51a0b2cc6939233324ed738db70e42faed93.png'),
         'figma:asset/0e6d5ac35544360f15b902845193c384729303dc.png': path.resolve(__dirname, './src/assets/0e6d5ac35544360f15b902845193c384729303dc.png'),
+        'figma:asset/bc56b2cd1a0b77abaa55ba2f68f90ef6c8e0ef44.png': path.resolve(__dirname, './src/assets/bc8e51a0b2cc6939233324ed738db70e42faed93.png'),
         'embla-carousel-react@8.6.0': 'embla-carousel-react',
         'cmdk@1.1.1': 'cmdk',
         'class-variance-authority@0.7.1': 'class-variance-authority',
@@ -53,7 +53,7 @@
     },
     build: {
       target: 'esnext',
-      outDir: 'dist',
+      outDir: 'build',
     },
     server: {
       port: 3000,
