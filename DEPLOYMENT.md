@@ -40,8 +40,28 @@ netlify deploy --prod --dir=dist
 
 ### Environment Variables
 
-If you need any environment variables, add them in:
-- Netlify Dashboard → Site settings → Environment variables
+**Required for Production:**
+
+The frontend needs to know where the backend API is located. You must set the `VITE_API_URL` environment variable in Netlify:
+
+1. Go to Netlify Dashboard → Your Site → **Site settings** → **Environment variables**
+2. Click **Add variable**
+3. Add the following:
+   - **Key**: `VITE_API_URL`
+   - **Value**: Your backend API URL (e.g., `https://api.clearways.ai/api` or `https://your-backend-domain.com/api`)
+   - **Scopes**: Select "Production", "Deploy previews", and "Branch deploys" as needed
+4. Click **Save**
+
+**Important Notes:**
+- The backend must be deployed and accessible before setting this variable
+- The URL should include the `/api` path if your backend serves the API under that path
+- After adding the variable, trigger a new deployment (or it will auto-deploy on the next push)
+- The backend must have CORS configured to allow requests from your Netlify domain
+
+**Backend Deployment:**
+- The backend server needs to be deployed separately (e.g., AWS EC2, ECS, Railway, Render, etc.)
+- See `server/SETUP.md` and `server/README.md` for backend deployment instructions
+- Ensure the backend is accessible via HTTPS in production
 
 ### Custom Domain: www.clearways.ai
 
