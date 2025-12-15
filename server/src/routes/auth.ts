@@ -163,9 +163,10 @@ router.post('/otp/verify', async (req, res) => {
       throw new Error('JWT_SECRET not configured');
     }
 
-    const token = jwt.sign({ userId }, secret, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    });
+    const payload: object = { userId: String(userId) };
+    const expiresIn: string | number = process.env.JWT_EXPIRES_IN || '7d';
+    
+    const token = jwt.sign(payload, secret as string, { expiresIn } as jwt.SignOptions);
 
     // Clean up OTP
     await pool.query('DELETE FROM site_otp_store WHERE email = $1', [email]);
