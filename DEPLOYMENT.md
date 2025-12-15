@@ -48,9 +48,10 @@ The frontend needs to know where the backend API is located. You must set the `V
 2. Click **Add variable**
 3. Add the following:
    - **Key**: `VITE_API_URL`
-   - **Value**: Your backend API URL (e.g., `https://api.clearways.ai/api` or `https://your-backend-domain.com/api`)
+   - **Value**: `http://clearways-ai-backend-env.eba-skxjjmed.us-east-1.elasticbeanstalk.com/api` (or your Elastic Beanstalk backend URL)
    - **Scopes**: Select "Production", "Deploy previews", and "Branch deploys" as needed
 4. Click **Save**
+5. **Important**: After adding the variable, trigger a new deployment (go to **Deploys** tab → **Trigger deploy** → **Deploy site**)
 
 **Important Notes:**
 - The backend must be deployed and accessible before setting this variable
