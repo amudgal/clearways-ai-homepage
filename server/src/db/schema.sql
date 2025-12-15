@@ -142,10 +142,12 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Triggers for updated_at
+-- Triggers for updated_at (drop if exists, then create)
+DROP TRIGGER IF EXISTS update_site_tenants_updated_at ON site_tenants;
 CREATE TRIGGER update_site_tenants_updated_at BEFORE UPDATE ON site_tenants
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_site_analyses_updated_at ON site_analyses;
 CREATE TRIGGER update_site_analyses_updated_at BEFORE UPDATE ON site_analyses
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
