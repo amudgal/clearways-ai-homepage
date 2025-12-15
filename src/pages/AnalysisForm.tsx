@@ -481,7 +481,7 @@ export default function AnalysisForm() {
     const mstrLicensing = Number(formData.mstrLicensingCost || 0) * Number(formData.numberOfInstances || 0);
     const ancillaryLicensing = Number(formData.ancillaryLicensingPercentage || 0); // Other Licensing Costs - dollar amount
     const cloudPersonnel = 0; // Removed from inputs
-    const mstrSupport = Number(formData.mstrSupportCosts || 0); // Now Strategy Professional Services
+    const mstrSupport = Number(formData.mstrSupportCosts || 0); // Professional Services (Strategy + Vendor)
     
     // Cloud Infrastructure Costs from Architecture Calculator
     const totalCloudInfra = getArchitectureTotal();
@@ -2364,10 +2364,10 @@ export default function AnalysisForm() {
                 </div>
               </div>
 
-              {/* Strategy Professional Services Input */}
+              {/* Professional Services (Strategy + Vendor) Input */}
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <label htmlFor="mstrSupportCosts" className="block text-gray-700 mb-2">
-                  Strategy Professional Services *
+                  Professional Services (Strategy + Vendor) *
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-2 text-gray-500">$</span>
