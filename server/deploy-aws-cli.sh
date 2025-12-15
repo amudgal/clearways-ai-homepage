@@ -65,33 +65,57 @@ fi
 echo -e "${GREEN}✅ Deployment package created: deploy.zip ($(du -h deploy.zip | cut -f1))${NC}"
 
 # Upload to S3
-S3_BUCKET="elasticbeanstalk-${REGION}-$(aws sts get-caller-identity --query Account --output text)"
+# Use Elastic Beanstalk's default bucket naming pattern
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+S3_BUCKET="elasticbeanstalk-${REGION}-${ACCOUNT_ID}"
 S3_KEY="clearways-backend/$(date +%Y%m%d-%H%M%S).zip"
 
 echo "☁️  Uploading to S3..."
 if aws s3 ls "s3://${S3_BUCKET}" &>/dev/null; then
-    # Bucket exists, just upload
-    aws s3 cp deploy.zip "s3://${S3_BUCKET}/${S3_KEY}" --region "${REGION}"
+    # Bucket exists, check if ACLs are enabled
+    echo "Bucket exists, checking ACL configuration..."
+    # Try to upload - if it fails, we'll fix the bucket
+    aws s3 cp deploy.zip "s3://${S3_BUCKET}/${S3_KEY}" --region "${REGION}" || {
+        echo "Configuring bucket to allow ACLs (required by Elastic Beanstalk)..."
+        # Enable ACLs on the bucket
+        aws s3api put-bucket-ownership-controls \
+            --bucket "${S3_BUCKET}" \
+            --ownership-controls '{"Rules":[{"ObjectOwnership":"BucketOwnerPreferred"}]}' \
+            --region "${REGION}" 2>/dev/null || true
+        
+        # Upload again
+        aws s3 cp deploy.zip "s3://${S3_BUCKET}/${S3_KEY}" --region "${REGION}"
+    }
 else
-    # Bucket doesn't exist, create it without ACLs
-    echo "Creating S3 bucket for Elastic Beanstalk (without ACLs)..."
-    aws s3api create-bucket \
-        --bucket "${S3_BUCKET}" \
-        --region "${REGION}" \
-        --create-bucket-configuration LocationConstraint="${REGION}" 2>/dev/null || \
-    aws s3api create-bucket \
-        --bucket "${S3_BUCKET}" \
-        --region us-east-1 2>/dev/null || true
+    # Bucket doesn't exist, create it with ACLs enabled
+    echo "Creating S3 bucket for Elastic Beanstalk..."
+    if [ "${REGION}" = "us-east-1" ]; then
+        aws s3api create-bucket \
+            --bucket "${S3_BUCKET}" \
+            --region "${REGION}" 2>/dev/null || true
+    else
+        aws s3api create-bucket \
+            --bucket "${S3_BUCKET}" \
+            --region "${REGION}" \
+            --create-bucket-configuration LocationConstraint="${REGION}" 2>/dev/null || true
+    fi
     
-    # Disable ACLs and set public access block
+        # Configure bucket to allow ACLs (required by Elastic Beanstalk)
+        echo "Configuring bucket ACL settings..."
+        aws s3api put-bucket-ownership-controls \
+            --bucket "${S3_BUCKET}" \
+            --ownership-controls '{"Rules":[{"ObjectOwnership":"BucketOwnerPreferred"}]}' \
+            --region "${REGION}" 2>/dev/null || true
+    
+    # Set public access block (security)
     aws s3api put-public-access-block \
         --bucket "${S3_BUCKET}" \
         --public-access-block-configuration \
             "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" \
-        2>/dev/null || true
+        --region "${REGION}" 2>/dev/null || true
     
-    # Upload without ACL
-    aws s3 cp deploy.zip "s3://${S3_BUCKET}/${S3_KEY}" --region "${REGION}" --no-acl
+    # Upload the file
+    aws s3 cp deploy.zip "s3://${S3_BUCKET}/${S3_KEY}" --region "${REGION}"
 fi
 
 echo -e "${GREEN}✅ Uploaded to s3://${S3_BUCKET}/${S3_KEY}${NC}"
@@ -113,16 +137,17 @@ else
     echo -e "${GREEN}✅ Application created${NC}"
 fi
 
-# Check if environment exists
+# Check if environment exists and is active
 echo "🔍 Checking if environment exists..."
-ENV_EXISTS=$(aws elasticbeanstalk describe-environments \
+ENV_STATUS=$(aws elasticbeanstalk describe-environments \
     --application-name "${APP_NAME}" \
     --environment-names "${ENV_NAME}" \
     --region "${REGION}" \
     --query 'Environments[0].Status' \
     --output text 2>/dev/null || echo "None")
 
-if [ "$ENV_EXISTS" != "None" ] && [ "$ENV_EXISTS" != "" ]; then
+# Only update if environment exists and is not terminated
+if [ "$ENV_STATUS" != "None" ] && [ "$ENV_STATUS" != "" ] && [ "$ENV_STATUS" != "Terminated" ]; then
     echo -e "${YELLOW}⚠️  Environment '${ENV_NAME}' already exists. Updating...${NC}"
     
     # Create application version
