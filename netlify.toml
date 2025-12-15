@@ -1,6 +1,6 @@
 [build]
   command = "npm run build"
-  publish = "dist"
+  publish = "build"
 
 # SPA routing - all routes redirect to index.html
 [[redirects]]
