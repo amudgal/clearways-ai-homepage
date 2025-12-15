@@ -147,16 +147,37 @@ else
         --source-bundle S3Bucket="${S3_BUCKET}",S3Key="${S3_KEY}" \
         --region "${REGION}"
     
-    # Get available solution stacks
+    # Get available solution stacks (prefer Node.js 20 on Amazon Linux 2023)
     echo "🔍 Finding available Node.js solution stack..."
     SOLUTION_STACK=$(aws elasticbeanstalk list-available-solution-stacks \
         --region "${REGION}" \
-        --query "SolutionStacks[?contains(@, 'Node.js 18') && contains(@, 'Amazon Linux 2')]" \
+        --query "SolutionStacks[?contains(@, 'Node.js 20') && contains(@, 'Amazon Linux 2023')]" \
         --output text | head -1)
     
+    # Fallback to Node.js 22 if 20 not available
     if [ -z "$SOLUTION_STACK" ]; then
-        echo -e "${YELLOW}⚠️  Using default Node.js solution stack${NC}"
-        SOLUTION_STACK="64bit Amazon Linux 2 v5.8.0 running Node.js 18"
+        SOLUTION_STACK=$(aws elasticbeanstalk list-available-solution-stacks \
+            --region "${REGION}" \
+            --query "SolutionStacks[?contains(@, 'Node.js 22') && contains(@, 'Amazon Linux 2023')]" \
+            --output text | head -1)
+    fi
+    
+    # Fallback to Node.js 24 if 22 not available
+    if [ -z "$SOLUTION_STACK" ]; then
+        SOLUTION_STACK=$(aws elasticbeanstalk list-available-solution-stacks \
+            --region "${REGION}" \
+            --query "SolutionStacks[?contains(@, 'Node.js 24') && contains(@, 'Amazon Linux 2023')]" \
+            --output text | head -1)
+    fi
+    
+    if [ -z "$SOLUTION_STACK" ]; then
+        echo -e "${RED}❌ No suitable Node.js solution stack found${NC}"
+        echo "Available stacks:"
+        aws elasticbeanstalk list-available-solution-stacks \
+            --region "${REGION}" \
+            --query "SolutionStacks[?contains(@, 'Node.js')]" \
+            --output text | head -5
+        exit 1
     fi
     
     echo "📋 Using solution stack: ${SOLUTION_STACK}"
