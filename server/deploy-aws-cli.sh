@@ -69,12 +69,30 @@ S3_BUCKET="elasticbeanstalk-${REGION}-$(aws sts get-caller-identity --query Acco
 S3_KEY="clearways-backend/$(date +%Y%m%d-%H%M%S).zip"
 
 echo "☁️  Uploading to S3..."
-aws s3 cp deploy.zip "s3://${S3_BUCKET}/${S3_KEY}" --region "${REGION}" || {
-    # If bucket doesn't exist, create it
-    echo "Creating S3 bucket for Elastic Beanstalk..."
-    aws s3 mb "s3://${S3_BUCKET}" --region "${REGION}" 2>/dev/null || true
+if aws s3 ls "s3://${S3_BUCKET}" &>/dev/null; then
+    # Bucket exists, just upload
     aws s3 cp deploy.zip "s3://${S3_BUCKET}/${S3_KEY}" --region "${REGION}"
-}
+else
+    # Bucket doesn't exist, create it without ACLs
+    echo "Creating S3 bucket for Elastic Beanstalk (without ACLs)..."
+    aws s3api create-bucket \
+        --bucket "${S3_BUCKET}" \
+        --region "${REGION}" \
+        --create-bucket-configuration LocationConstraint="${REGION}" 2>/dev/null || \
+    aws s3api create-bucket \
+        --bucket "${S3_BUCKET}" \
+        --region us-east-1 2>/dev/null || true
+    
+    # Disable ACLs and set public access block
+    aws s3api put-public-access-block \
+        --bucket "${S3_BUCKET}" \
+        --public-access-block-configuration \
+            "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" \
+        2>/dev/null || true
+    
+    # Upload without ACL
+    aws s3 cp deploy.zip "s3://${S3_BUCKET}/${S3_KEY}" --region "${REGION}" --no-acl
+fi
 
 echo -e "${GREEN}✅ Uploaded to s3://${S3_BUCKET}/${S3_KEY}${NC}"
 
