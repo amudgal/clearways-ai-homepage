@@ -234,6 +234,7 @@ else
         --solution-stack-name "${SOLUTION_STACK}" \
         --option-settings \
             "Namespace=aws:autoscaling:launchconfiguration,OptionName=InstanceType,Value=${INSTANCE_TYPE}" \
+            "Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role" \
             "Namespace=aws:elasticbeanstalk:application:environment,OptionName=NODE_ENV,Value=production" \
             "Namespace=aws:elasticbeanstalk:application:environment,OptionName=PORT,Value=8080" \
         --region "${REGION}" \
