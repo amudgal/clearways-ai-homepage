@@ -955,14 +955,7 @@ export default function AnalysisForm() {
     }
     
     if (!existing || existing.length === 0) {
-      // If no existing rows, return defaults and initialize them
-      setEditableContent(prev => ({
-        ...prev,
-        costRows: {
-          ...prev.costRows,
-          [tableId]: defaultRows,
-        },
-      }));
+      // If no existing rows, return defaults (state will be initialized by useEffect)
       return defaultRows;
     }
     // Merge defaults with existing, preserving existing rows
@@ -985,14 +978,6 @@ export default function AnalysisForm() {
       return defaultRow;
     });
     
-    // Update stored rows with correct cost values to prevent stale data
-    setEditableContent(prev => ({
-      ...prev,
-      costRows: {
-        ...prev.costRows,
-        [tableId]: merged,
-      },
-    }));
     // Add any extra rows that were added but aren't in defaults
     const extraRows = existing.filter(r => !defaultRows.find(dr => dr.id === r.id));
     return [...merged, ...extraRows];
