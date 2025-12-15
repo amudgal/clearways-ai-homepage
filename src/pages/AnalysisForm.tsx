@@ -966,13 +966,15 @@ export default function AnalysisForm() {
       return defaultRows;
     }
     // Merge defaults with existing, preserving existing rows
+    // For cost values, always use the calculated default value to ensure accuracy
     const merged = defaultRows.map((defaultRow, index) => {
       const existingRow = existing.find(r => r.id === defaultRow.id) || existing[index];
       if (existingRow) {
         return {
           ...defaultRow,
           costLabel: existingRow.costLabel || defaultRow.costLabel,
-          costValue: existingRow.costValue || defaultRow.costValue,
+          // Always use calculated costValue from defaults to ensure it matches the subtotal
+          costValue: defaultRow.costValue,
           natureOfCosts: existingRow.natureOfCosts || defaultRow.natureOfCosts,
           costSensitivity: existingRow.costSensitivity || defaultRow.costSensitivity,
           confidenceScore: existingRow.confidenceScore || defaultRow.confidenceScore,
