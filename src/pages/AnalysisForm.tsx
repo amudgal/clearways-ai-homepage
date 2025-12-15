@@ -479,7 +479,7 @@ export default function AnalysisForm() {
   // Calculate all the costs
   const calculateCosts = () => {
     const mstrLicensing = Number(formData.mstrLicensingCost || 0) * Number(formData.numberOfInstances || 0);
-    const ancillaryLicensing = Number(formData.ancillaryLicensingPercentage || 0); // Now MSTR Support Costs (Annual) - dollar amount
+    const ancillaryLicensing = Number(formData.ancillaryLicensingPercentage || 0); // Other Licensing Costs - dollar amount
     const cloudPersonnel = 0; // Removed from inputs
     const mstrSupport = Number(formData.mstrSupportCosts || 0); // Now Strategy Professional Services
     
@@ -2076,10 +2076,10 @@ export default function AnalysisForm() {
               </div>
             </div>
 
-            {/* MSTR Support Costs (Annual) */}
+            {/* Other Licensing Costs */}
             <div>
               <label htmlFor="ancillaryLicensingPercentage" className="block text-gray-700 mb-2">
-                MSTR Support Costs (Annual) *
+                Other Licensing Costs *
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-2 text-gray-500">$</span>
