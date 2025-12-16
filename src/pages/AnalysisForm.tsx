@@ -1210,7 +1210,7 @@ export default function AnalysisForm() {
                     : String(row.confidenceScore).startsWith('4') || (String(row.confidenceScore).includes('High') && !String(row.confidenceScore).includes('Very'))
                       ? 'bg-green-400 text-white' // 4 - High: Medium green background, white text
                       : String(row.confidenceScore).startsWith('3') || String(row.confidenceScore).includes('Medium')
-                        ? 'bg-yellow-400 text-gray-900' // 3 - Medium: Yellow background, dark text
+                        ? '' // 3 - Medium: Using inline styles only to avoid oklch in Tailwind classes
                         : String(row.confidenceScore).startsWith('2') || (String(row.confidenceScore).includes('Low') && !String(row.confidenceScore).includes('Very'))
                           ? 'bg-orange-400 text-gray-900' // 2 - Low: Orange background, dark text
                           : String(row.confidenceScore).startsWith('1') || String(row.confidenceScore).includes('Very Low')
@@ -1562,19 +1562,38 @@ export default function AnalysisForm() {
                   
                   // Skip properties that are empty, 'none', 'normal', 'auto', transparent, or contain oklch
                   // BUT always include background properties (they might contain gradients)
-                  if (value && 
+                  // Convert oklch to rgb if found
+                  let processedValue = value;
+                  if (value && (value.includes('oklch') || value.includes('oklab'))) {
+                    // If oklch is found, try to get the computed RGB value instead
+                    // For background-color, get the actual computed RGB
+                    if (prop === 'background-color' || prop === 'backgroundColor') {
+                      const rgbValue = computed.backgroundColor;
+                      if (rgbValue && !rgbValue.includes('oklch') && !rgbValue.includes('oklab')) {
+                        processedValue = rgbValue;
+                      } else {
+                        // Skip this property if we can't get a valid RGB
+                        return;
+                      }
+                    } else {
+                      // Skip other properties with oklch
+                      return;
+                    }
+                  }
+                  
+                  if (processedValue && 
                       (isBackgroundProp || (
-                        value !== 'none' && 
-                        value !== 'normal' && 
-                        value !== 'auto' && 
-                        value !== 'rgba(0, 0, 0, 0)' &&
-                        value !== 'transparent' &&
-                        !value.includes('oklch') &&
-                        !value.includes('oklab')
+                        processedValue !== 'none' && 
+                        processedValue !== 'normal' && 
+                        processedValue !== 'auto' && 
+                        processedValue !== 'rgba(0, 0, 0, 0)' &&
+                        processedValue !== 'transparent' &&
+                        !processedValue.includes('oklch') &&
+                        !processedValue.includes('oklab')
                       ))) {
                     // Convert kebab-case to camelCase for style properties
                     const camelProp = prop.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-                    clonedEl.style.setProperty(prop, value, 'important');
+                    clonedEl.style.setProperty(prop, processedValue, 'important');
                   }
                 } catch (e) {
                   // Ignore errors for individual properties
@@ -1633,23 +1652,33 @@ export default function AnalysisForm() {
               };
               
               Object.entries(criticalProps).forEach(([prop, value]) => {
-                if (value && value !== 'none' && value !== 'normal' && value !== 'auto' && 
-                    value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent' &&
-                    !value.includes('oklch') && !value.includes('oklab')) {
-                  try {
-                    // Special handling for gradients - ensure they're preserved
-                    if (prop === 'background' || prop === 'backgroundImage') {
-                      if (value.includes('gradient') || value.includes('linear-gradient') || value.includes('radial-gradient')) {
-                        clonedEl.style.setProperty(prop, value, 'important');
-                      } else if (value && value !== 'none' && value !== 'rgba(0, 0, 0, 0)') {
-                        clonedEl.style.setProperty(prop, value, 'important');
-                      }
-                    } else {
+                if (!value || value === 'none' || value === 'normal' || value === 'auto' || 
+                    value === 'rgba(0, 0, 0, 0)' || value === 'transparent' ||
+                    value.includes('oklch') || value.includes('oklab')) {
+                  // For background-color with oklch, try to get computed RGB
+                  if ((prop === 'backgroundColor' || prop === 'background-color') && value && 
+                      (value.includes('oklch') || value.includes('oklab'))) {
+                    const rgbValue = computed.backgroundColor;
+                    if (rgbValue && !rgbValue.includes('oklch') && !rgbValue.includes('oklab')) {
+                      clonedEl.style.setProperty(prop, rgbValue, 'important');
+                    }
+                  }
+                  return;
+                }
+                
+                try {
+                  // Special handling for gradients - ensure they're preserved
+                  if (prop === 'background' || prop === 'backgroundImage') {
+                    if (value.includes('gradient') || value.includes('linear-gradient') || value.includes('radial-gradient')) {
+                      clonedEl.style.setProperty(prop, value, 'important');
+                    } else if (value && value !== 'none' && value !== 'rgba(0, 0, 0, 0)') {
                       clonedEl.style.setProperty(prop, value, 'important');
                     }
-                  } catch (e) {
-                    // Ignore errors
+                  } else {
+                    clonedEl.style.setProperty(prop, value, 'important');
                   }
+                } catch (e) {
+                  // Ignore errors
                 }
               });
               
