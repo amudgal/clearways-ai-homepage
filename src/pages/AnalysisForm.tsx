@@ -2944,11 +2944,11 @@ export default function AnalysisForm() {
 
             {/* 5. Total Costs */}
             <div className="bg-white rounded-lg shadow-lg overflow-hidden border-2 border-[#17A2B8]" id="total-costs-section">
-              <div className="bg-gradient-to-r from-[#17A2B8] to-[#2C5F7C] text-white px-6 py-5">
+              <div className="bg-gradient-to-r from-[#17A2B8] to-[#2C5F7C] text-white px-6 py-5" style={{ backgroundColor: '#17A2B8', color: 'white' }}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-2xl font-bold">5. Total Costs</h3>
-                    <p className="text-sm opacity-90 mt-2 italic">
+                    <h3 className="text-2xl font-bold" style={{ color: 'white', fontWeight: 'bold' }}>5. Total Costs</h3>
+                    <p className="text-sm opacity-90 mt-2 italic" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
                       This is the all-in cost view required for budget approval and comparison against alternatives.
                     </p>
                   </div>
