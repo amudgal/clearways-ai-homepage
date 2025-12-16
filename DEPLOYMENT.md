@@ -48,21 +48,26 @@ The frontend needs to know where the backend API is located. You must set the `V
 2. Click **Add variable**
 3. Add the following:
    - **Key**: `VITE_API_URL`
-   - **Value**: `http://clearways-ai-backend-env.eba-skxjjmed.us-east-1.elasticbeanstalk.com/api` (or your Elastic Beanstalk backend URL)
+   - **Value**: `https://clearways-ai-backend-env.eba-skxjjmed.us-east-1.elasticbeanstalk.com/api` (or your Elastic Beanstalk backend URL)
+   - **⚠️ CRITICAL: Must use HTTPS, not HTTP!** The frontend is served over HTTPS, so the backend must also use HTTPS to avoid Mixed Content errors.
    - **Scopes**: Select "Production", "Deploy previews", and "Branch deploys" as needed
 4. Click **Save**
 5. **Important**: After adding the variable, trigger a new deployment (go to **Deploys** tab → **Trigger deploy** → **Deploy site**)
 
 **Important Notes:**
+- **⚠️ MUST USE HTTPS:** The frontend is served over HTTPS (`https://www.clearways.ai`), so the backend URL must also use HTTPS (`https://...`) to avoid Mixed Content errors
+- **Automatic HTTPS Conversion:** The code automatically converts HTTP to HTTPS when the page is loaded over HTTPS, but you should still set `VITE_API_URL` to HTTPS in Netlify for best practices
+- **Backend HTTPS Support Required:** Your backend must support HTTPS. If you set `VITE_API_URL` to HTTP, the frontend will automatically convert it to HTTPS, but the backend must be configured to accept HTTPS connections
 - The backend must be deployed and accessible before setting this variable
 - The URL should include the `/api` path if your backend serves the API under that path
 - After adding the variable, trigger a new deployment (or it will auto-deploy on the next push)
 - The backend must have CORS configured to allow requests from your Netlify domain
+- If your Elastic Beanstalk backend doesn't support HTTPS yet, you need to configure SSL/TLS on the Elastic Beanstalk environment first (add a load balancer with an SSL certificate)
 
 **Backend Deployment:**
 - The backend server needs to be deployed separately (e.g., AWS EC2, ECS, Railway, Render, etc.)
 - See `server/SETUP.md` and `server/README.md` for backend deployment instructions
-- Ensure the backend is accessible via HTTPS in production
+- **CRITICAL:** Ensure the backend is accessible via HTTPS in production. Elastic Beanstalk supports HTTPS if you configure a load balancer with an SSL certificate
 
 ### Custom Domain: www.clearways.ai
 
