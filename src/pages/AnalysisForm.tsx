@@ -1226,7 +1226,7 @@ export default function AnalysisForm() {
                     : String(row.confidenceScore).startsWith('4') || (String(row.confidenceScore).includes('High') && !String(row.confidenceScore).includes('Very'))
                       ? '#4ade80' // green-400
                       : String(row.confidenceScore).startsWith('3') || String(row.confidenceScore).includes('Medium')
-                        ? 'oklch(0.901 0.076 70.697)' // Light orange/peach from design
+                        ? '#f5d5a3' // Light orange/peach from design (converted from oklch(0.901 0.076 70.697))
                         : String(row.confidenceScore).startsWith('2') || (String(row.confidenceScore).includes('Low') && !String(row.confidenceScore).includes('Very'))
                           ? '#fb923c' // orange-400
                           : String(row.confidenceScore).startsWith('1') || String(row.confidenceScore).includes('Very Low')
