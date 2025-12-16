@@ -959,25 +959,31 @@ export default function AnalysisForm() {
       // If no existing rows, return defaults (state will be initialized by useEffect)
       return defaultRows;
     }
-    // Merge defaults with existing, preserving existing rows
+    
+    // Get IDs of existing rows to check which defaults should be included
+    const existingIds = new Set(existing.map(r => r.id));
+    
+    // Merge defaults with existing, but only include default rows that still exist (not deleted)
     // For cost values, ALWAYS use the calculated default value to ensure accuracy and match subtotals
-    const merged = defaultRows.map((defaultRow, index) => {
-      const existingRow = existing.find(r => r.id === defaultRow.id) || existing[index];
-      if (existingRow) {
-        return {
-          ...defaultRow,
-          costLabel: existingRow.costLabel || defaultRow.costLabel,
-          // CRITICAL: Always use calculated costValue from defaults (never from existing stored values)
-          // This ensures individual costs always match the subtotal calculation
-          costValue: defaultRow.costValue, // This is already formatted from formatCostValue(costs.currentState.mstrLicensing)
-          natureOfCosts: existingRow.natureOfCosts || defaultRow.natureOfCosts,
-          costSensitivity: existingRow.costSensitivity || defaultRow.costSensitivity,
-          confidenceScore: existingRow.confidenceScore || defaultRow.confidenceScore,
-          description: existingRow.description || defaultRow.description,
-        };
-      }
-      return defaultRow;
-    });
+    const merged = defaultRows
+      .filter(defaultRow => existingIds.has(defaultRow.id)) // Only include defaults that still exist (not deleted)
+      .map((defaultRow) => {
+        const existingRow = existing.find(r => r.id === defaultRow.id);
+        if (existingRow) {
+          return {
+            ...defaultRow,
+            costLabel: existingRow.costLabel || defaultRow.costLabel,
+            // CRITICAL: Always use calculated costValue from defaults (never from existing stored values)
+            // This ensures individual costs always match the subtotal calculation
+            costValue: defaultRow.costValue, // This is already formatted from formatCostValue(costs.currentState.mstrLicensing)
+            natureOfCosts: existingRow.natureOfCosts || defaultRow.natureOfCosts,
+            costSensitivity: existingRow.costSensitivity || defaultRow.costSensitivity,
+            confidenceScore: existingRow.confidenceScore || defaultRow.confidenceScore,
+            description: existingRow.description || defaultRow.description,
+          };
+        }
+        return defaultRow;
+      });
     
     // Add any extra rows that were added but aren't in defaults
     const extraRows = existing.filter(r => !defaultRows.find(dr => dr.id === r.id));
