@@ -39,8 +39,9 @@ echo "Requesting verification for domain $DOMAIN..."
 RESULT=$(aws sesv2 create-email-identity \
   --email-identity "$DOMAIN" \
   --region "$REGION" 2>&1)
+EXIT_CODE=$?
 
-if [ $? -eq 0 ]; then
+if [ $EXIT_CODE -eq 0 ]; then
   echo "✅ Verification request created successfully!"
   echo ""
   echo "DNS Records to add to your DNS provider:"
@@ -63,13 +64,55 @@ if [ $? -eq 0 ]; then
   echo "After DNS records are added, SES will automatically verify the domain."
 else
   # Check if identity already exists
-  if echo "$RESULT" | grep -q "already exists"; then
-    echo "ℹ️  Domain identity already exists. Checking status..."
-    aws sesv2 get-email-identity \
+  if echo "$RESULT" | grep -q "already exists\|AlreadyExistsException"; then
+    echo "ℹ️  Domain identity already exists. Getting DNS records for verification..."
+    echo ""
+    
+    # Get verification details
+    IDENTITY_DATA=$(aws sesv2 get-email-identity \
       --email-identity "$DOMAIN" \
       --region "$REGION" \
-      --query '{Status:VerificationStatus,Attributes:VerificationAttributes}' \
-      --output json
+      --output json)
+    
+    STATUS=$(echo "$IDENTITY_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin).get('VerificationStatus', 'N/A'))" 2>/dev/null)
+    
+    if [ "$STATUS" == "SUCCESS" ]; then
+      echo "✅ Domain $DOMAIN is already verified!"
+    else
+      echo "⏳ Domain verification is pending. DNS records needed:"
+      echo ""
+      echo "DNS Records to add to your DNS provider:"
+      echo "========================================"
+      echo ""
+      
+      # Get verification token
+      VERIFICATION_TOKEN=$(echo "$IDENTITY_DATA" | python3 -c "import sys, json; attrs = json.load(sys.stdin).get('VerificationAttributes', {}); print(attrs.get('VerificationToken', ''))" 2>/dev/null)
+      
+      if [ -n "$VERIFICATION_TOKEN" ]; then
+        echo "1. Verification TXT Record (REQUIRED):"
+        echo "   Name:  _amazonses.$DOMAIN"
+        echo "   Type:  TXT"
+        echo "   Value: $VERIFICATION_TOKEN"
+        echo ""
+      fi
+      
+      # Get DKIM records
+      echo "2. DKIM Records (for email authentication - RECOMMENDED):"
+      aws sesv2 get-email-identity \
+        --email-identity "$DOMAIN" \
+        --region "$REGION" \
+        --query 'DkimAttributes.DnsRecords[*].{Name:Name,Type:Type,Value:Value}' \
+        --output table 2>/dev/null
+      
+      echo ""
+      echo "Next steps:"
+      echo "1. Add the DNS records above to your DNS provider (where $DOMAIN is hosted)"
+      echo "2. Wait for DNS propagation (5-30 minutes)"
+      echo "3. Check verification status with:"
+      echo "   ./check-ses-status.sh $DOMAIN"
+      echo ""
+      echo "After DNS records are added, SES will automatically verify the domain."
+    fi
   else
     echo "❌ Error: $RESULT"
     exit 1
