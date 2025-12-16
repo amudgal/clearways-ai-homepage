@@ -1183,9 +1183,21 @@ export default function AnalysisForm() {
               {confidenceOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
           ) : (
-            <span className={`inline-block px-3 py-1 rounded text-sm ${
-              isSubtotal ? 'text-white bg-transparent' : 'bg-green-200'
-            } text-gray-900`}>
+            <span className={`inline-block px-3 py-1 rounded text-sm font-medium ${
+              isSubtotal 
+                ? 'text-white bg-transparent' 
+                : row.confidenceScore?.startsWith('5') 
+                  ? 'bg-green-700 text-white' // 5 - Very High: Dark green
+                  : row.confidenceScore?.startsWith('4')
+                    ? 'bg-green-500 text-white' // 4 - High: Medium green
+                    : row.confidenceScore?.startsWith('3')
+                      ? 'bg-yellow-400 text-gray-900' // 3 - Medium: Yellow
+                      : row.confidenceScore?.startsWith('2')
+                        ? 'bg-orange-400 text-gray-900' // 2 - Low: Orange
+                        : row.confidenceScore?.startsWith('1')
+                          ? 'bg-red-500 text-white' // 1 - Very Low: Red
+                          : 'bg-gray-200 text-gray-900' // Default: Gray
+            }`}>
               {row.confidenceScore}
             </span>
           )}
