@@ -1209,9 +1209,9 @@ export default function AnalysisForm() {
                     : String(row.confidenceScore).startsWith('4') || (String(row.confidenceScore).includes('High') && !String(row.confidenceScore).includes('Very'))
                       ? '#4ade80' // green-400
                       : String(row.confidenceScore).startsWith('3') || String(row.confidenceScore).includes('Medium')
-                        ? undefined // yellow-400 from Tailwind
+                        ? '#facc15' // yellow-400
                         : String(row.confidenceScore).startsWith('2') || (String(row.confidenceScore).includes('Low') && !String(row.confidenceScore).includes('Very'))
-                          ? undefined // orange-400 from Tailwind
+                          ? '#fb923c' // orange-400
                           : String(row.confidenceScore).startsWith('1') || String(row.confidenceScore).includes('Very Low')
                             ? '#ef4444' // red-500
                             : undefined,
