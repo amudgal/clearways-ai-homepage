@@ -2,8 +2,10 @@
 // Uses backend API for authentication
 
 import { User, Tenant, UserRole } from '../types';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Get API URL dynamically to ensure HTTPS conversion happens at runtime
+const getApiUrl = () => getApiBaseUrl();
 
 export class AuthService {
   /**
@@ -11,7 +13,7 @@ export class AuthService {
    */
   static async sendOTP(email: string): Promise<{ success: boolean; message: string; otp?: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/otp/send`, {
+      const response = await fetch(`${getApiUrl()}/auth/otp/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -41,7 +43,7 @@ export class AuthService {
    */
   static async verifyOTP(email: string, otp: string): Promise<{ success: boolean; user?: User; token?: string; message: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/otp/verify`, {
+      const response = await fetch(`${getApiUrl()}/auth/otp/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +127,7 @@ export class AuthService {
       const token = localStorage.getItem('auth_token');
       if (!token) return null;
 
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      const response = await fetch(`${getApiUrl()}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
