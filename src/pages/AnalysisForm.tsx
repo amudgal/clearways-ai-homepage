@@ -1331,10 +1331,10 @@ export default function AnalysisForm() {
         }
       }
 
-      // Analysis Name
+      // Analysis Name - same font as Analysis Summary
       pdf.setFontSize(18);
-      pdf.setTextColor(23, 162, 184); // #17A2B8
       pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(23, 162, 184); // #17A2B8
       const titleY = logoLoaded ? margin + 120 : margin + 60;
       pdf.text(analysisTitle || 'Cost Analysis Report', pageWidth / 2, titleY, { align: 'center' });
 
