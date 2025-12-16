@@ -220,7 +220,7 @@ export default function AnalysisForm() {
             numberOfInstances: inputs.instance_count?.toString() || '',
             hostingEnvironment: inputs.hosting_environment || 'GCP',
             mstrSupportCosts: inputs.mstr_support_cost?.toString() || '0.00',
-            cloudSupportCosts: inputs.cloud_support_cost?.toString() || '0.00',
+            cloudSupportCosts: inputs.cloud_personnel_cost?.toString() || '0.00',
           });
 
           // Load component selections from tier_selections
