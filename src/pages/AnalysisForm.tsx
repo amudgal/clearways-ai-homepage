@@ -1189,33 +1189,17 @@ export default function AnalysisForm() {
                 : !row.confidenceScore || String(row.confidenceScore).trim() === ''
                   ? 'bg-gray-200 text-gray-900'
                   : String(row.confidenceScore).startsWith('5') || String(row.confidenceScore).includes('Very High')
-                    ? 'bg-green-700 text-white'
+                    ? 'bg-green-700 text-white' // 5 - Very High: Dark green background, white text
                     : String(row.confidenceScore).startsWith('4') || (String(row.confidenceScore).includes('High') && !String(row.confidenceScore).includes('Very'))
-                      ? 'bg-green-500 text-white'
+                      ? 'bg-green-500 text-white' // 4 - High: Medium green background, white text
                       : String(row.confidenceScore).startsWith('3') || String(row.confidenceScore).includes('Medium')
-                        ? 'bg-yellow-400 text-gray-900'
+                        ? 'bg-yellow-400 text-gray-900' // 3 - Medium: Yellow background, dark text
                         : String(row.confidenceScore).startsWith('2') || (String(row.confidenceScore).includes('Low') && !String(row.confidenceScore).includes('Very'))
-                          ? 'bg-orange-400 text-gray-900'
+                          ? 'bg-orange-400 text-gray-900' // 2 - Low: Orange background, dark text
                           : String(row.confidenceScore).startsWith('1') || String(row.confidenceScore).includes('Very Low')
-                            ? 'bg-red-500 text-white'
-                            : 'bg-gray-200 text-gray-900'
-            }`} style={{
-              color: isSubtotal 
-                ? 'white' 
-                : !row.confidenceScore || String(row.confidenceScore).trim() === ''
-                  ? '#111827' // gray-900
-                  : String(row.confidenceScore).startsWith('5') || String(row.confidenceScore).includes('Very High')
-                    ? 'white'
-                    : String(row.confidenceScore).startsWith('4') || (String(row.confidenceScore).includes('High') && !String(row.confidenceScore).includes('Very'))
-                      ? 'white'
-                      : String(row.confidenceScore).startsWith('3') || String(row.confidenceScore).includes('Medium')
-                        ? '#111827' // gray-900
-                        : String(row.confidenceScore).startsWith('2') || (String(row.confidenceScore).includes('Low') && !String(row.confidenceScore).includes('Very'))
-                          ? '#111827' // gray-900
-                          : String(row.confidenceScore).startsWith('1') || String(row.confidenceScore).includes('Very Low')
-                            ? 'white'
-                            : '#111827' // gray-900
-            }}>
+                            ? 'bg-red-500 text-white' // 1 - Very Low: Red background, white text
+                            : 'bg-gray-200 text-gray-900' // Default: Gray background, dark text
+            }`}>
               {row.confidenceScore || 'N/A'}
             </span>
           )}
