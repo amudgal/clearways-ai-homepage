@@ -1332,7 +1332,7 @@ export default function AnalysisForm() {
       }
 
       // Analysis Name
-      pdf.setFontSize(24);
+      pdf.setFontSize(18);
       pdf.setTextColor(23, 162, 184); // #17A2B8
       pdf.setFont('helvetica', 'bold');
       const titleY = logoLoaded ? margin + 120 : margin + 60;
