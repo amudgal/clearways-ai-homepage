@@ -3175,9 +3175,9 @@ export default function AnalysisForm() {
 
             {/* 8. Questions & Answers */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-4">
+              <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-4" style={{ backgroundColor: '#22c55e', color: 'white' }}>
                 <div className="flex items-center justify-between">
-                  <h3>8. Questions & Answers</h3>
+                  <h3 style={{ color: 'white', fontWeight: 'bold' }}>8. Questions & Answers</h3>
                   {isEditMode && (
                     <button
                       onClick={addQA}
@@ -3266,9 +3266,9 @@ export default function AnalysisForm() {
 
             {/* 9. Terms */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="bg-gray-700 text-white px-6 py-4">
+              <div className="bg-gray-700 text-white px-6 py-4" style={{ backgroundColor: '#374151', color: 'white' }}>
                 <div className="flex items-center justify-between">
-                  <h3>9. Terms</h3>
+                  <h3 style={{ color: 'white', fontWeight: 'bold' }}>9. Terms</h3>
                   {isEditMode && (
                     <button
                       onClick={addTerm}
