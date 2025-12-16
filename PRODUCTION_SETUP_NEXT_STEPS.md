@@ -36,11 +36,19 @@ dig CNAME api.clearways.ai
 
 Both should return the correct CNAME values.
 
-## Step 2: Configure HTTPS Listener in Elastic Beanstalk
+## Step 2: Configure HTTPS Listener in Elastic Beanstalk ✅
 
-Once certificate status is **ISSUED**, configure HTTPS:
+**COMPLETED via AWS CLI** - The HTTPS listener has been configured. Environment is updating (takes 5-10 minutes).
 
-### Option A: Using AWS Console (Recommended)
+To check status:
+```bash
+cd /Users/amitmudgal/Documents/ClearWaysAI/code/server
+./check-https-status.sh
+```
+
+### Alternative Methods (for reference):
+
+### Option A: Using AWS Console
 
 1. Go to **AWS Console** → **Elastic Beanstalk**
 2. Select environment: `clearways-ai-backend-env`
