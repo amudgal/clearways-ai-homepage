@@ -1372,62 +1372,97 @@ export default function AnalysisForm() {
       const footerHeight = 15;
       const maxContentHeight = pageHeight - margin - headerHeight - footerHeight - margin;
       
-      pdf.setFontSize(16);
+      pdf.setFontSize(18);
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0);
+      pdf.setTextColor(23, 162, 184); // #17A2B8
       let yPos = margin + headerHeight + 8;
       pdf.text('Analysis Summary', margin, yPos);
-      yPos += 10;
+      yPos += 12;
 
-      // Helper function to draw a table row
-      const drawTableRow = (label: string, value: string, isHeader: boolean = false, isBold: boolean = false) => {
+      // Helper function to draw a polished table row
+      const drawTableRow = (label: string, value: string, isHeader: boolean = false, isBold: boolean = false, isTotal: boolean = false) => {
         if (yPos > pageHeight - margin - footerHeight - 15) return false;
         
-        const col1Width = (pageWidth - (margin * 2)) * 0.5;
-        const col2Width = (pageWidth - (margin * 2)) * 0.5;
-        const rowHeight = isHeader ? 8 : 6;
+        const tableWidth = pageWidth - (margin * 2);
+        const col1Width = tableWidth * 0.55;
+        const col2Width = tableWidth * 0.45;
+        const rowHeight = isHeader ? 10 : (isTotal ? 8 : 7);
+        const cellPadding = 4;
         
-        // Draw borders
-        pdf.setDrawColor(200, 200, 200);
-        pdf.setLineWidth(0.1);
+        // Draw cell backgrounds
+        if (isHeader) {
+          // Header background - professional blue-gray
+          pdf.setFillColor(44, 95, 124); // #2C5F7C
+          pdf.rect(margin, yPos - rowHeight / 2, tableWidth, rowHeight, 'F');
+        } else if (isTotal) {
+          // Total row background - light blue-gray
+          pdf.setFillColor(240, 247, 250);
+          pdf.rect(margin, yPos - rowHeight / 2, tableWidth, rowHeight, 'F');
+        } else {
+          // Alternate row colors for better readability
+          const rowIndex = Math.floor((yPos - margin - headerHeight - 20) / rowHeight);
+          if (rowIndex % 2 === 0) {
+            pdf.setFillColor(255, 255, 255);
+          } else {
+            pdf.setFillColor(249, 250, 251);
+          }
+          pdf.rect(margin, yPos - rowHeight / 2, tableWidth, rowHeight, 'F');
+        }
+        
+        // Draw borders - thicker for header and total
+        const borderWidth = (isHeader || isTotal) ? 0.3 : 0.15;
+        pdf.setLineWidth(borderWidth);
+        
+        if (isHeader) {
+          pdf.setDrawColor(44, 95, 124); // Dark blue-gray for header
+        } else if (isTotal) {
+          pdf.setDrawColor(23, 162, 184); // Teal for total
+        } else {
+          pdf.setDrawColor(229, 231, 235); // Light gray for regular rows
+        }
         
         // Top border
-        pdf.line(margin, yPos - rowHeight / 2, margin + col1Width + col2Width, yPos - rowHeight / 2);
+        pdf.line(margin, yPos - rowHeight / 2, margin + tableWidth, yPos - rowHeight / 2);
         // Bottom border
-        pdf.line(margin, yPos + rowHeight / 2, margin + col1Width + col2Width, yPos + rowHeight / 2);
+        pdf.line(margin, yPos + rowHeight / 2, margin + tableWidth, yPos + rowHeight / 2);
         // Left border
         pdf.line(margin, yPos - rowHeight / 2, margin, yPos + rowHeight / 2);
         // Middle border
         pdf.line(margin + col1Width, yPos - rowHeight / 2, margin + col1Width, yPos + rowHeight / 2);
         // Right border
-        pdf.line(margin + col1Width + col2Width, yPos - rowHeight / 2, margin + col1Width + col2Width, yPos + rowHeight / 2);
+        pdf.line(margin + tableWidth, yPos - rowHeight / 2, margin + tableWidth, yPos + rowHeight / 2);
         
-        // Background for header
+        // Text styling
         if (isHeader) {
-          pdf.setFillColor(240, 240, 240);
-          pdf.rect(margin, yPos - rowHeight / 2, col1Width + col2Width, rowHeight, 'F');
+          pdf.setFontSize(11);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(255, 255, 255); // White text on dark header
+        } else if (isTotal) {
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(23, 162, 184); // Teal for total
+        } else {
+          pdf.setFontSize(9);
+          pdf.setFont('helvetica', isBold ? 'bold' : 'normal');
+          pdf.setTextColor(0, 0, 0);
         }
         
-        // Text
-        pdf.setFontSize(isHeader ? 11 : 9);
-        pdf.setFont('helvetica', (isHeader || isBold) ? 'bold' : 'normal');
-        pdf.setTextColor(0, 0, 0);
+        // Label column - left aligned
+        pdf.text(label, margin + cellPadding, yPos, { maxWidth: col1Width - (cellPadding * 2), align: 'left' });
         
-        // Label column
-        pdf.text(label, margin + 3, yPos, { maxWidth: col1Width - 6 });
-        
-        // Value column
-        pdf.text(value, margin + col1Width + 3, yPos, { maxWidth: col2Width - 6 });
+        // Value column - right aligned for numbers
+        pdf.text(value, margin + col1Width + col2Width - cellPadding, yPos, { maxWidth: col2Width - (cellPadding * 2), align: 'right' });
         
         yPos += rowHeight;
         return true;
       };
 
       // Analysis Inputs Table
-      pdf.setFontSize(11);
+      pdf.setFontSize(12);
       pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0);
       pdf.text('Analysis Inputs', margin, yPos);
-      yPos += 8;
+      yPos += 10;
       
       drawTableRow('Item', 'Value', true);
       drawTableRow('Hosting Environment', formData.hostingEnvironment);
@@ -1435,14 +1470,15 @@ export default function AnalysisForm() {
       drawTableRow('MSTR License (per instance)', `$${Number(formData.mstrLicensingCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
       drawTableRow('MSTR Support Cost', `$${Number(formData.ancillaryLicensingPercentage || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
       drawTableRow('Cloud Support Costs', `$${Number(formData.cloudSupportCosts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
-      yPos += 4;
+      yPos += 6;
 
       // Architecture Cost Calculator Table
       if (yPos < pageHeight - margin - footerHeight - 30) {
-        pdf.setFontSize(11);
+        pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(0, 0, 0);
         pdf.text('Architecture Cost Calculator', margin, yPos);
-        yPos += 8;
+        yPos += 10;
         
         drawTableRow('Section', 'Cost', true);
         
@@ -1468,17 +1504,18 @@ export default function AnalysisForm() {
         });
 
         if (yPos < pageHeight - margin - footerHeight - 15) {
-          drawTableRow('Total Architecture Cost', `$${getArchitectureTotal().toLocaleString('en-US', { minimumFractionDigits: 2 })}`, false, true);
-          yPos += 4;
+          drawTableRow('Total Architecture Cost', `$${getArchitectureTotal().toLocaleString('en-US', { minimumFractionDigits: 2 })}`, false, true, true);
+          yPos += 6;
         }
       }
 
       // Strategy and Cloud Support Table
       if (yPos < pageHeight - margin - footerHeight - 20) {
-        pdf.setFontSize(11);
+        pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(0, 0, 0);
         pdf.text('Strategy and Cloud Support', margin, yPos);
-        yPos += 8;
+        yPos += 10;
         
         drawTableRow('Item', 'Cost', true);
         
@@ -1493,7 +1530,7 @@ export default function AnalysisForm() {
         }
         
         if (yPos < pageHeight - margin - footerHeight - 10) {
-          drawTableRow('Total Support Cost', `$${totalSupportCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, false, true);
+          drawTableRow('Total Support Cost', `$${totalSupportCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, false, true, true);
         }
       }
       
