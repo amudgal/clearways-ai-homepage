@@ -2943,12 +2943,12 @@ export default function AnalysisForm() {
             </div>
 
             {/* 5. Total Costs */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-[#17A2B8] to-[#2C5F7C] text-white px-6 py-4">
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden border-2 border-[#17A2B8]" id="total-costs-section">
+              <div className="bg-gradient-to-r from-[#17A2B8] to-[#2C5F7C] text-white px-6 py-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3>5. Total Costs</h3>
-                    <p className="text-sm opacity-90 mt-1 italic">
+                    <h3 className="text-2xl font-bold">5. Total Costs</h3>
+                    <p className="text-sm opacity-90 mt-2 italic">
                       This is the all-in cost view required for budget approval and comparison against alternatives.
                     </p>
                   </div>
@@ -2989,15 +2989,16 @@ export default function AnalysisForm() {
                     {getTableRows('total-costs').map((row, index) => 
                       renderEditableRow('total-costs', row, false)
                     )}
-                    <tr className="bg-gradient-to-r from-[#17A2B8] to-[#2C5F7C] text-white">
-                      <td className="px-6 py-4 text-sm" colSpan={isEditMode ? 6 : 5}>
-                        <div className="flex justify-between items-center text-lg">
+                    <tr className="bg-gradient-to-r from-[#17A2B8] to-[#2C5F7C] text-white font-bold" style={{ backgroundColor: '#17A2B8' }}>
+                      <td className="px-6 py-6 text-base" colSpan={isEditMode ? 6 : 5} style={{ backgroundColor: '#17A2B8', color: 'white', fontWeight: 'bold' }}>
+                        <div className="flex justify-between items-center">
                           <div>
-                            <div>Total Annual Cost</div>
+                            <div className="text-xl font-bold">Total Annual Cost</div>
+                            <div className="text-sm opacity-90 mt-1 font-normal">All-inclusive annual projection</div>
                           </div>
                           <div className="text-right">
-                            <div>${formatCostValue(costs.currentState.total)}</div>
-                            <div className="text-sm opacity-90 mt-1">Projection</div>
+                            <div className="text-3xl font-bold">${formatCostValue(costs.currentState.total)}</div>
+                            <div className="text-sm opacity-90 mt-1 font-normal">Annual Projection</div>
                           </div>
                         </div>
                       </td>
