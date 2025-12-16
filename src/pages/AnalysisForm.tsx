@@ -2673,7 +2673,7 @@ export default function AnalysisForm() {
             </div>
 
             {/* 1. Insights */}
-            <div className="bg-white rounded-lg shadow-sm p-6" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+            <div className="bg-white rounded-lg shadow-sm p-6 border-2 border-purple-500" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #a855f7' }}>
               <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-4 rounded-t-lg -mx-6 -mt-6 mb-6" style={{ backgroundColor: '#a855f7', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <h3 style={{ color: 'white', fontWeight: 'bold' }}>1. Insights</h3>
@@ -2763,7 +2763,7 @@ export default function AnalysisForm() {
             </div>
 
             {/* 2. Negotiated Annual Licensing Costs (Static) */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden border-2 border-[#2C5F7C]" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #2C5F7C' }}>
               <div className="bg-[#2C5F7C] text-white px-6 py-4" style={{ backgroundColor: '#2C5F7C', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -2823,7 +2823,7 @@ export default function AnalysisForm() {
             </div>
 
             {/* 3. Metered Costs (Running Costs) */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden border-2 border-[#2C5F7C]" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #2C5F7C' }}>
               <div className="bg-[#2C5F7C] text-white px-6 py-4" style={{ backgroundColor: '#2C5F7C', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -2883,7 +2883,7 @@ export default function AnalysisForm() {
             </div>
 
             {/* 4. Support Costs */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden border-2 border-[#2C5F7C]" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #2C5F7C' }}>
               <div className="bg-[#2C5F7C] text-white px-6 py-4" style={{ backgroundColor: '#2C5F7C', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -3009,7 +3009,7 @@ export default function AnalysisForm() {
             </div>
 
             {/* 6. Architecture Choice Costs */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden border-2 border-[#5A6C7D]" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #5A6C7D' }}>
               <div className="bg-[#5A6C7D] text-white px-6 py-4" style={{ backgroundColor: '#5A6C7D', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -3094,7 +3094,7 @@ export default function AnalysisForm() {
             </div>
 
             {/* 7. Assumptions */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden border-2 border-[#F59E0B]" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #F59E0B' }}>
               <div className="bg-[#F59E0B] text-white px-6 py-4" style={{ backgroundColor: '#F59E0B', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -3174,7 +3174,7 @@ export default function AnalysisForm() {
             </div>
 
             {/* 8. Questions & Answers */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden border-2 border-green-500" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #22c55e' }}>
               <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-4" style={{ backgroundColor: '#22c55e', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <h3 style={{ color: 'white', fontWeight: 'bold' }}>8. Questions & Answers</h3>
@@ -3265,7 +3265,7 @@ export default function AnalysisForm() {
             </div>
 
             {/* 9. Terms */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden border-2 border-gray-700" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #374151' }}>
               <div className="bg-gray-700 text-white px-6 py-4" style={{ backgroundColor: '#374151', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <h3 style={{ color: 'white', fontWeight: 'bold' }}>9. Terms</h3>
