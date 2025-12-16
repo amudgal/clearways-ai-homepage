@@ -16,6 +16,7 @@ interface FormData {
   numberOfInstances: string;
   hostingEnvironment: string;
   mstrSupportCosts: string;
+  cloudSupportCosts: string;
 }
 
 interface PricingEntry {
@@ -105,6 +106,7 @@ export default function AnalysisForm() {
     numberOfInstances: '',
     hostingEnvironment: 'GCP',
     mstrSupportCosts: '0.00',
+    cloudSupportCosts: '0.00',
   });
 
   const [showResults, setShowResults] = useState(false);
@@ -218,6 +220,7 @@ export default function AnalysisForm() {
             numberOfInstances: inputs.instance_count?.toString() || '',
             hostingEnvironment: inputs.hosting_environment || 'GCP',
             mstrSupportCosts: inputs.mstr_support_cost?.toString() || '0.00',
+            cloudSupportCosts: inputs.cloud_support_cost?.toString() || '0.00',
           });
 
           // Load component selections from tier_selections
@@ -481,7 +484,7 @@ export default function AnalysisForm() {
   const calculateCosts = () => {
     const mstrLicensing = Number(formData.mstrLicensingCost || 0) * Number(formData.numberOfInstances || 0);
     const ancillaryLicensing = Number(formData.ancillaryLicensingPercentage || 0); // Other Licensing Costs - dollar amount
-    const cloudPersonnel = 0; // Removed from inputs
+    const cloudPersonnel = Number(formData.cloudSupportCosts || 0); // Cloud Support costs - In-house staff costs
     const mstrSupport = Number(formData.mstrSupportCosts || 0); // Professional Services (Strategy + Vendor)
     
     // Cloud Infrastructure Costs from Architecture Calculator
@@ -527,7 +530,7 @@ export default function AnalysisForm() {
   const costs = useMemo(() => {
     if (!showResults) return null;
     return calculateCosts();
-  }, [showResults, formData.mstrLicensingCost, formData.ancillaryLicensingPercentage, formData.numberOfInstances, formData.mstrSupportCosts, componentSelections]);
+  }, [showResults, formData.mstrLicensingCost, formData.ancillaryLicensingPercentage, formData.numberOfInstances, formData.mstrSupportCosts, formData.cloudSupportCosts, componentSelections]);
 
   const initializeEditableContent = (costsData: NonNullable<typeof costs>) => {
     
@@ -1966,7 +1969,7 @@ export default function AnalysisForm() {
         egress_gb: 0,
         compute_gb: 0,
         infrastructure_gb: 0,
-        cloud_personnel_cost: 0,
+        cloud_personnel_cost: Number(formData.cloudSupportCosts || 0),
         mstr_support_cost: Number(formData.mstrSupportCosts || 0),
       };
 
@@ -2436,6 +2439,30 @@ export default function AnalysisForm() {
                     id="mstrSupportCosts"
                     name="mstrSupportCosts"
                     value={formData.mstrSupportCosts}
+                    onChange={handleInputChange}
+                    className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#17A2B8] focus:border-transparent"
+                    placeholder="0.00"
+                    step="0.01"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Cloud Support Costs Input */}
+              <div className="mb-6 pb-6 border-b border-gray-200">
+                <label htmlFor="cloudSupportCosts" className="block text-gray-700 mb-2">
+                  Cloud Support Costs *
+                </label>
+                <div className="text-sm text-gray-600 mb-2">
+                  In-house staff costs including engineers, architects, and support personnel
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    id="cloudSupportCosts"
+                    name="cloudSupportCosts"
+                    value={formData.cloudSupportCosts}
                     onChange={handleInputChange}
                     className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#17A2B8] focus:border-transparent"
                     placeholder="0.00"
