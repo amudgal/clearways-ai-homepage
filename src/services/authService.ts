@@ -13,7 +13,10 @@ export class AuthService {
    */
   static async sendOTP(email: string): Promise<{ success: boolean; message: string; otp?: string }> {
     try {
-      const response = await fetch(`${getApiUrl()}/auth/otp/send`, {
+      const apiUrl = getApiUrl();
+      console.log('[AuthService] Sending OTP request to:', `${apiUrl}/auth/otp/send`);
+      
+      const response = await fetch(`${apiUrl}/auth/otp/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -21,10 +24,24 @@ export class AuthService {
         body: JSON.stringify({ email }),
       });
 
+      console.log('[AuthService] Response status:', response.status, response.statusText);
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('[AuthService] Non-JSON response:', text);
+        return { 
+          success: false, 
+          message: `Server error (${response.status}): ${text.substring(0, 100)}` 
+        };
+      }
+
       const data = await response.json();
+      console.log('[AuthService] Response data:', data);
 
       if (!response.ok) {
-        return { success: false, message: data.error || 'Failed to send OTP' };
+        return { success: false, message: data.error || `Failed to send OTP (${response.status})` };
       }
 
       return {
@@ -33,7 +50,23 @@ export class AuthService {
         ...(data.otp && { otp: data.otp }), // Include OTP if provided (dev mode)
       };
     } catch (error) {
-      console.error('Send OTP error:', error);
+      console.error('[AuthService] Send OTP error:', error);
+      
+      // Provide more specific error messages
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        return { 
+          success: false, 
+          message: 'Network error: Cannot connect to server. Please check your connection or contact support.' 
+        };
+      }
+      
+      if (error instanceof Error) {
+        return { 
+          success: false, 
+          message: `Error: ${error.message}` 
+        };
+      }
+      
       return { success: false, message: 'Failed to send OTP. Please try again.' };
     }
   }
