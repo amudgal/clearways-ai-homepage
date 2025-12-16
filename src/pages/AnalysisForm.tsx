@@ -1189,9 +1189,9 @@ export default function AnalysisForm() {
                 : !row.confidenceScore || String(row.confidenceScore).trim() === ''
                   ? 'bg-gray-200 text-gray-900'
                   : String(row.confidenceScore).startsWith('5') || String(row.confidenceScore).includes('Very High')
-                    ? 'bg-green-700 text-white' // 5 - Very High: Dark green background, white text
+                    ? 'bg-green-600 text-white' // 5 - Very High: Dark green background, white text
                     : String(row.confidenceScore).startsWith('4') || (String(row.confidenceScore).includes('High') && !String(row.confidenceScore).includes('Very'))
-                      ? 'bg-green-500 text-white' // 4 - High: Medium green background, white text
+                      ? 'bg-green-400 text-white' // 4 - High: Medium green background, white text
                       : String(row.confidenceScore).startsWith('3') || String(row.confidenceScore).includes('Medium')
                         ? 'bg-yellow-400 text-gray-900' // 3 - Medium: Yellow background, dark text
                         : String(row.confidenceScore).startsWith('2') || (String(row.confidenceScore).includes('Low') && !String(row.confidenceScore).includes('Very'))
@@ -1199,7 +1199,38 @@ export default function AnalysisForm() {
                           : String(row.confidenceScore).startsWith('1') || String(row.confidenceScore).includes('Very Low')
                             ? 'bg-red-500 text-white' // 1 - Very Low: Red background, white text
                             : 'bg-gray-200 text-gray-900' // Default: Gray background, dark text
-            }`}>
+            }`} style={{
+              backgroundColor: isSubtotal 
+                ? 'transparent' 
+                : !row.confidenceScore || String(row.confidenceScore).trim() === ''
+                  ? undefined
+                  : String(row.confidenceScore).startsWith('5') || String(row.confidenceScore).includes('Very High')
+                    ? '#16a34a' // green-600
+                    : String(row.confidenceScore).startsWith('4') || (String(row.confidenceScore).includes('High') && !String(row.confidenceScore).includes('Very'))
+                      ? '#4ade80' // green-400
+                      : String(row.confidenceScore).startsWith('3') || String(row.confidenceScore).includes('Medium')
+                        ? undefined // yellow-400 from Tailwind
+                        : String(row.confidenceScore).startsWith('2') || (String(row.confidenceScore).includes('Low') && !String(row.confidenceScore).includes('Very'))
+                          ? undefined // orange-400 from Tailwind
+                          : String(row.confidenceScore).startsWith('1') || String(row.confidenceScore).includes('Very Low')
+                            ? '#ef4444' // red-500
+                            : undefined,
+              color: isSubtotal 
+                ? 'white' 
+                : !row.confidenceScore || String(row.confidenceScore).trim() === ''
+                  ? '#111827' // gray-900
+                  : String(row.confidenceScore).startsWith('5') || String(row.confidenceScore).includes('Very High')
+                    ? 'white'
+                    : String(row.confidenceScore).startsWith('4') || (String(row.confidenceScore).includes('High') && !String(row.confidenceScore).includes('Very'))
+                      ? 'white'
+                      : String(row.confidenceScore).startsWith('3') || String(row.confidenceScore).includes('Medium')
+                        ? '#111827' // gray-900
+                        : String(row.confidenceScore).startsWith('2') || (String(row.confidenceScore).includes('Low') && !String(row.confidenceScore).includes('Very'))
+                          ? '#111827' // gray-900
+                          : String(row.confidenceScore).startsWith('1') || String(row.confidenceScore).includes('Very Low')
+                            ? 'white'
+                            : '#111827' // gray-900
+            }}>
               {row.confidenceScore || 'N/A'}
             </span>
           )}
