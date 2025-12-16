@@ -1379,48 +1379,79 @@ export default function AnalysisForm() {
       pdf.text('Analysis Summary', margin, yPos);
       yPos += 10;
 
-      // Analysis Inputs Summary - compact
+      // Helper function to draw a table row
+      const drawTableRow = (label: string, value: string, isHeader: boolean = false, isBold: boolean = false) => {
+        if (yPos > pageHeight - margin - footerHeight - 15) return false;
+        
+        const col1Width = (pageWidth - (margin * 2)) * 0.5;
+        const col2Width = (pageWidth - (margin * 2)) * 0.5;
+        const rowHeight = isHeader ? 8 : 6;
+        
+        // Draw borders
+        pdf.setDrawColor(200, 200, 200);
+        pdf.setLineWidth(0.1);
+        
+        // Top border
+        pdf.line(margin, yPos - rowHeight / 2, margin + col1Width + col2Width, yPos - rowHeight / 2);
+        // Bottom border
+        pdf.line(margin, yPos + rowHeight / 2, margin + col1Width + col2Width, yPos + rowHeight / 2);
+        // Left border
+        pdf.line(margin, yPos - rowHeight / 2, margin, yPos + rowHeight / 2);
+        // Middle border
+        pdf.line(margin + col1Width, yPos - rowHeight / 2, margin + col1Width, yPos + rowHeight / 2);
+        // Right border
+        pdf.line(margin + col1Width + col2Width, yPos - rowHeight / 2, margin + col1Width + col2Width, yPos + rowHeight / 2);
+        
+        // Background for header
+        if (isHeader) {
+          pdf.setFillColor(240, 240, 240);
+          pdf.rect(margin, yPos - rowHeight / 2, col1Width + col2Width, rowHeight, 'F');
+        }
+        
+        // Text
+        pdf.setFontSize(isHeader ? 11 : 9);
+        pdf.setFont('helvetica', (isHeader || isBold) ? 'bold' : 'normal');
+        pdf.setTextColor(0, 0, 0);
+        
+        // Label column
+        pdf.text(label, margin + 3, yPos, { maxWidth: col1Width - 6 });
+        
+        // Value column
+        pdf.text(value, margin + col1Width + 3, yPos, { maxWidth: col2Width - 6 });
+        
+        yPos += rowHeight;
+        return true;
+      };
+
+      // Analysis Inputs Table
       pdf.setFontSize(11);
       pdf.setFont('helvetica', 'bold');
       pdf.text('Analysis Inputs', margin, yPos);
-      yPos += 6;
-
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      const inputs = [
-        `Hosting: ${formData.hostingEnvironment}`,
-        `Instances: ${formData.numberOfInstances}`,
-        `MSTR License: $${Number(formData.mstrLicensingCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-        `MSTR Support: $${Number(formData.ancillaryLicensingPercentage || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-        `Strategy Services: $${Number(formData.mstrSupportCosts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      ];
+      yPos += 8;
       
-      inputs.forEach((text) => {
-        if (yPos > pageHeight - margin - footerHeight - 20) return;
-        pdf.text(text, margin + 5, yPos);
-        yPos += 5;
-      });
+      drawTableRow('Item', 'Value', true);
+      drawTableRow('Hosting Environment', formData.hostingEnvironment);
+      drawTableRow('Number of Instances', formData.numberOfInstances || '0');
+      drawTableRow('MSTR License (per instance)', `$${Number(formData.mstrLicensingCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
+      drawTableRow('MSTR Support Cost', `$${Number(formData.ancillaryLicensingPercentage || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
+      drawTableRow('Cloud Support Costs', `$${Number(formData.cloudSupportCosts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
       yPos += 4;
 
-      // Architecture Cost Calculator Details - compact
+      // Architecture Cost Calculator Table
       if (yPos < pageHeight - margin - footerHeight - 30) {
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'bold');
         pdf.text('Architecture Cost Calculator', margin, yPos);
-        yPos += 6;
-
-        pdf.setFontSize(9);
-        pdf.setFont('helvetica', 'normal');
+        yPos += 8;
+        
+        drawTableRow('Section', 'Cost', true);
         
         ARCHITECTURE_SECTIONS.forEach((section) => {
           const sectionTotal = getTotalCostForSection(section);
           if (sectionTotal > 0 && yPos < pageHeight - margin - footerHeight - 15) {
-            pdf.setFont('helvetica', 'bold');
-            const sectionText = `${section.name}: $${sectionTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-            pdf.text(sectionText, margin + 5, yPos);
-            yPos += 5;
-
-            // Only show components if there's space
+            drawTableRow(section.name, `$${sectionTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, false, true);
+            
+            // Show top 2 components if there's space
             let componentCount = 0;
             section.components.forEach((component) => {
               if (componentCount >= 2 || yPos > pageHeight - margin - footerHeight - 20) return;
@@ -1428,10 +1459,7 @@ export default function AnalysisForm() {
               if (selection && selection.selectedTier && selection.selectedTier !== '') {
                 const componentCost = calculateTotalCost(component.id);
                 if (componentCost > 0) {
-                  pdf.setFont('helvetica', 'normal');
-                  const componentText = `  • ${component.name}: $${componentCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-                  pdf.text(componentText, margin + 10, yPos);
-                  yPos += 4;
+                  drawTableRow(`  ${component.name}`, `$${componentCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
                   componentCount++;
                 }
               }
@@ -1440,36 +1468,32 @@ export default function AnalysisForm() {
         });
 
         if (yPos < pageHeight - margin - footerHeight - 15) {
-          pdf.setFont('helvetica', 'bold');
-          pdf.text(`Total: $${getArchitectureTotal().toLocaleString('en-US', { minimumFractionDigits: 2 })}`, margin + 5, yPos);
-          yPos += 8;
+          drawTableRow('Total Architecture Cost', `$${getArchitectureTotal().toLocaleString('en-US', { minimumFractionDigits: 2 })}`, false, true);
+          yPos += 4;
         }
       }
 
-      // Strategy and Cloud Support - compact
+      // Strategy and Cloud Support Table
       if (yPos < pageHeight - margin - footerHeight - 20) {
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'bold');
         pdf.text('Strategy and Cloud Support', margin, yPos);
-        yPos += 6;
-
-        pdf.setFontSize(9);
-        pdf.setFont('helvetica', 'normal');
-        const supportServicesCost = calculateSupportServicesCost();
-        const totalSupportCost = supportServicesCost + Number(formData.mstrSupportCosts || 0);
+        yPos += 8;
         
-        pdf.text(`Strategy Services: $${Number(formData.mstrSupportCosts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, margin + 5, yPos);
-        yPos += 5;
+        drawTableRow('Item', 'Cost', true);
+        
+        const supportServicesCost = calculateSupportServicesCost();
+        const totalSupportCost = supportServicesCost + Number(formData.mstrSupportCosts || 0) + Number(formData.cloudSupportCosts || 0);
+        
+        drawTableRow('Strategy Services', `$${Number(formData.mstrSupportCosts || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
         
         const supportSelection = componentSelections['support-services'];
         if (supportSelection?.selectedTier && yPos < pageHeight - margin - footerHeight - 10) {
-          pdf.text(`Support: $${supportServicesCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, margin + 5, yPos);
-          yPos += 5;
+          drawTableRow('Support Services', `$${supportServicesCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
         }
         
         if (yPos < pageHeight - margin - footerHeight - 10) {
-          pdf.setFont('helvetica', 'bold');
-          pdf.text(`Total: $${totalSupportCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, margin + 5, yPos);
+          drawTableRow('Total Support Cost', `$${totalSupportCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, false, true);
         }
       }
       
