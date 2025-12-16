@@ -22,10 +22,14 @@ export default function Login() {
     }
 
     setIsLoading(true);
+    console.log('[Login] Starting OTP request for:', email);
     
     try {
       const result = await sendOTP(email);
+      console.log('[Login] OTP request result:', result);
+      
       if (result.success) {
+        console.log('[Login] OTP sent successfully, moving to OTP step');
         setStep('otp');
         // Store OTP for display if provided (development mode)
         if (result.otp) {
@@ -33,11 +37,14 @@ export default function Login() {
         }
         toast.success(result.message);
       } else {
+        console.error('[Login] OTP request failed:', result.message);
         toast.error(result.message);
       }
     } catch (error) {
+      console.error('[Login] Unexpected error in handleSendOTP:', error);
       toast.error('Failed to send OTP. Please try again.');
     } finally {
+      console.log('[Login] Setting isLoading to false');
       setIsLoading(false);
     }
   };

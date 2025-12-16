@@ -12,19 +12,27 @@ export class AuthService {
    * Generate OTP and send via email (calls backend API)
    */
   static async sendOTP(email: string): Promise<{ success: boolean; message: string; otp?: string }> {
+    const apiUrl = getApiUrl();
+    console.log('[AuthService] Sending OTP request to:', `${apiUrl}/auth/otp/send`);
+    console.log('[AuthService] Request payload:', { email });
+    
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
     try {
-      const apiUrl = getApiUrl();
-      console.log('[AuthService] Sending OTP request to:', `${apiUrl}/auth/otp/send`);
-      
       const response = await fetch(`${apiUrl}/auth/otp/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email }),
+        signal: controller.signal,
       });
 
-      console.log('[AuthService] Response status:', response.status, response.statusText);
+      clearTimeout(timeoutId);
+      console.log('[AuthService] Response received - Status:', response.status, response.statusText);
+      console.log('[AuthService] Response headers:', Object.fromEntries(response.headers.entries()));
 
       // Check if response is JSON
       const contentType = response.headers.get('content-type');
@@ -41,23 +49,40 @@ export class AuthService {
       console.log('[AuthService] Response data:', data);
 
       if (!response.ok) {
+        console.error('[AuthService] Request failed with status:', response.status);
         return { success: false, message: data.error || `Failed to send OTP (${response.status})` };
       }
 
+      console.log('[AuthService] OTP sent successfully');
       return {
         success: true,
         message: data.message,
         ...(data.otp && { otp: data.otp }), // Include OTP if provided (dev mode)
       };
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error('[AuthService] Send OTP error:', error);
+      console.error('[AuthService] Error type:', error?.constructor?.name);
+      console.error('[AuthService] Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       
       // Provide more specific error messages
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        return { 
-          success: false, 
-          message: 'Network error: Cannot connect to server. Please check your connection or contact support.' 
-        };
+      if (error instanceof TypeError) {
+        if (error.message.includes('Failed to fetch')) {
+          return { 
+            success: false, 
+            message: 'Network error: Cannot connect to server. This could be a CORS issue or the server is down. Please check the browser console for details.' 
+          };
+        }
+        if (error.message.includes('aborted')) {
+          return { 
+            success: false, 
+            message: 'Request timeout: The server took too long to respond. Please try again.' 
+          };
+        }
       }
       
       if (error instanceof Error) {
