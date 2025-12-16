@@ -3,11 +3,12 @@ import { useParams } from 'react-router-dom';
 import { Calculator, Download, Save, Edit2, X, Check, Plus, Trash2 } from 'lucide-react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { useAuth } from '../contexts/AuthContext';
+import { getApiBaseUrl } from '../utils/apiConfig';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import logo from 'figma:asset/bc56b2cd1a0b77abaa55ba2f68f90ef6c8e0ef44.png';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = getApiBaseUrl();
 
 interface FormData {
   mstrLicensingCost: string;

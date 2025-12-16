@@ -23,7 +23,12 @@ app.use(helmet());
 // CORS configuration - support multiple origins
 const allowedOrigins = process.env.CORS_ORIGIN 
   ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-  : ['http://localhost:3000', 'https://clearways.ai', 'https://www.clearways.ai'];
+  : [
+      'http://localhost:3000',
+      'https://clearways.ai',
+      'https://www.clearways.ai',
+      'https://clearways-ai-homepage.netlify.app', // Netlify preview URLs
+    ];
 
 app.use(cors({
   origin: (origin, callback) => {

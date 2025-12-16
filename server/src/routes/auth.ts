@@ -5,6 +5,7 @@ import express from 'express';
 import { pool } from '../config/database';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/database';
+import { sendOTPEmail, isEmailConfigured } from '../services/emailService';
 
 const router = express.Router();
 
@@ -51,19 +52,36 @@ router.post('/otp/send', async (req, res) => {
       [email, otp, expiresAt]
     );
 
-    // In production, send email here using nodemailer
-    // For now, log it (in development, return in response)
-    console.log(`[OTP] ${email}: ${otp} (expires at ${expiresAt.toISOString()})`);
-
-    const isDevelopment = process.env.NODE_ENV === 'development';
+    // Send OTP email
+    const emailSent = await sendOTPEmail(email, otp);
     
-    res.json({
-      success: true,
-      message: isDevelopment 
-        ? `OTP sent! Your code is: ${otp} (expires in 10 minutes)`
-        : `OTP sent to ${email}. Please check your email.`,
-      ...(isDevelopment && { otp }),
-    });
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const emailConfigured = isEmailConfigured();
+    
+    // In development or if email not configured, return OTP in response
+    if (isDevelopment || !emailConfigured) {
+      console.log(`[OTP] ${email}: ${otp} (expires at ${expiresAt.toISOString()})`);
+      res.json({
+        success: true,
+        message: isDevelopment 
+          ? `OTP sent! Your code is: ${otp} (expires in 10 minutes)`
+          : `OTP generated. Email service not configured - check server logs for OTP code.`,
+        ...((isDevelopment || !emailConfigured) && { otp }),
+      });
+    } else {
+      // Production with email configured
+      if (!emailSent) {
+        console.error(`[OTP] Failed to send email to ${email}, but OTP was generated: ${otp}`);
+        return res.status(500).json({ 
+          error: 'Failed to send OTP email. Please try again or contact support.' 
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: `OTP sent to ${email}. Please check your email.`,
+      });
+    }
   } catch (error) {
     console.error('Send OTP error:', error);
     res.status(500).json({ error: 'Failed to send OTP' });

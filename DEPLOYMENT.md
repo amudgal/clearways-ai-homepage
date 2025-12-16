@@ -68,6 +68,10 @@ The frontend needs to know where the backend API is located. You must set the `V
 - The backend server needs to be deployed separately (e.g., AWS EC2, ECS, Railway, Render, etc.)
 - See `server/SETUP.md` and `server/README.md` for backend deployment instructions
 - **CRITICAL:** Ensure the backend is accessible via HTTPS in production. Elastic Beanstalk supports HTTPS if you configure a load balancer with an SSL certificate
+- **See `server/PRODUCTION_SETUP.md` for complete production configuration including:**
+  - CORS configuration (required to fix CORS errors)
+  - Email service setup (required for OTP emails)
+  - All environment variables needed
 
 ### Custom Domain: www.clearways.ai
 

@@ -17,7 +17,8 @@ The frontend needs to know where the backend API is located. Without this, it wi
 3. **Add the Production Backend URL**
    - Click **Add variable**
    - **Key**: `VITE_API_URL`
-   - **Value**: `http://clearways-ai-backend-env.eba-skxjjmed.us-east-1.elasticbeanstalk.com/api`
+   - **Value**: `https://clearways-ai-backend-env.eba-skxjjmed.us-east-1.elasticbeanstalk.com/api`
+   - **⚠️ CRITICAL: Must use HTTPS, not HTTP!** The frontend is served over HTTPS, so the backend must also use HTTPS to avoid Mixed Content errors.
    - **Scopes**: 
      - ✅ Production
      - ✅ Deploy previews (optional)
@@ -32,8 +33,9 @@ The frontend needs to know where the backend API is located. Without this, it wi
 ### Verify It's Working:
 
 After deployment, check the browser console:
-- The frontend should call: `http://clearways-ai-backend-env.eba-skxjjmed.us-east-1.elasticbeanstalk.com/api/auth/otp/send`
+- The frontend should call: `https://clearways-ai-backend-env.eba-skxjjmed.us-east-1.elasticbeanstalk.com/api/auth/otp/send`
 - NOT: `http://localhost:3001/api/auth/otp/send`
+- **⚠️ Must use HTTPS, not HTTP!**
 
 ### Important Notes:
 

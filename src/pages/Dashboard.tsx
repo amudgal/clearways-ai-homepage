@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, FileText, Calendar, Clock, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { getApiBaseUrl } from '../utils/apiConfig';
 import { toast } from 'sonner';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = getApiBaseUrl();
 
 interface Analysis {
   id: string;

@@ -7,8 +7,9 @@ import { useNavigate } from 'react-router-dom';
 import { Save, Loader2, AlertCircle, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = getApiBaseUrl();
 
 interface PricingEntry {
   service_type: string;

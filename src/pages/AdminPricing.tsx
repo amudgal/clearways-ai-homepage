@@ -6,8 +6,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Save, X, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = getApiBaseUrl();
 
 interface PricingVersion {
   id: string;
