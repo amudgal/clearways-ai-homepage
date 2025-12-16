@@ -1868,11 +1868,44 @@ export default function AnalysisForm() {
           const footerHeight = 15;
           const contentHeight = pageHeight - margin - headerHeight - footerHeight - margin;
 
-          // Split image into pages
+          // Find all card elements and their positions before splitting
+          const cardElements: Array<{ top: number; height: number; bottom: number }> = [];
+          const allDivs = cloneForExport.querySelectorAll('div');
+          
+          allDivs.forEach((el) => {
+            const htmlEl = el as HTMLElement;
+            // Check if this is a card (has border, shadow, or specific card styling)
+            const hasCardStyling = htmlEl.classList.contains('rounded-lg') && 
+                                   (htmlEl.classList.contains('shadow-sm') || 
+                                    htmlEl.classList.contains('shadow-lg') ||
+                                    htmlEl.style.border ||
+                                    htmlEl.getAttribute('id')?.includes('section') ||
+                                    htmlEl.getAttribute('id')?.includes('total-costs'));
+            
+            if (hasCardStyling && htmlEl.offsetHeight > 50) { // Only consider substantial cards
+              const rect = htmlEl.getBoundingClientRect();
+              const containerRect = cloneForExport.getBoundingClientRect();
+              const relativeTop = rect.top - containerRect.top;
+              
+              cardElements.push({
+                top: relativeTop,
+                height: htmlEl.offsetHeight,
+                bottom: relativeTop + htmlEl.offsetHeight
+              });
+            }
+          });
+          
+          // Sort cards by position
+          cardElements.sort((a, b) => a.top - b.top);
+          
+          console.log('Found cards:', cardElements.length, cardElements.map(c => ({ top: c.top, height: c.height, bottom: c.bottom })));
+
+          // Split image into pages, ensuring cards aren't cut
           let sourceY = 0;
           let pageAdded = false;
+          const scaleFactor = canvas.height / cloneForExport.offsetHeight;
 
-          console.log('Starting page split. Canvas height:', canvas.height, 'Image height:', imgHeight, 'Content height:', contentHeight);
+          console.log('Starting page split. Canvas height:', canvas.height, 'Image height:', imgHeight, 'Content height:', contentHeight, 'Scale factor:', scaleFactor);
 
           while (sourceY < canvas.height) {
             // Always add a new page for results section (first page is for summary)
@@ -1895,10 +1928,41 @@ export default function AnalysisForm() {
             // Calculate how much of the image fits on this page
             const pageStartY = margin + headerHeight;
             const availableHeight = contentHeight;
-            const sourceHeight = Math.min(
+            let sourceHeight = Math.min(
               (availableHeight / imgHeight) * canvas.height,
               canvas.height - sourceY
             );
+            
+            // Convert sourceY to DOM coordinates to check card positions
+            const domY = sourceY / scaleFactor;
+            const domPageEnd = (sourceY + sourceHeight) / scaleFactor;
+            
+            // Check if any card would be cut by this page break
+            let cardWouldBeCut = false;
+            let nextCardStart = -1;
+            
+            for (const card of cardElements) {
+              // Check if card starts before page end but extends beyond it
+              if (card.top < domPageEnd && card.bottom > domPageEnd && card.top >= domY) {
+                cardWouldBeCut = true;
+                // Adjust to start before this card
+                nextCardStart = card.top * scaleFactor;
+                break;
+              }
+              // If card starts after current page, note it for next page
+              if (card.top >= domPageEnd && nextCardStart === -1) {
+                nextCardStart = card.top * scaleFactor;
+              }
+            }
+            
+            // If a card would be cut, adjust sourceY to start before the card
+            if (cardWouldBeCut && nextCardStart > sourceY) {
+              sourceY = nextCardStart;
+              // Skip to next iteration to add new page
+              if (sourceY >= canvas.height) break;
+              continue;
+            }
+            
             const displayHeight = (sourceHeight / canvas.height) * imgHeight;
 
             console.log(`Page ${pdf.internal.pages.length - 1}: sourceY=${sourceY}, sourceHeight=${sourceHeight}, displayHeight=${displayHeight}`);
