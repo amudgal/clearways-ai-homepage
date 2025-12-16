@@ -1540,6 +1540,7 @@ export default function AnalysisForm() {
           
           // Capture with stylesheets intact - apply computed styles as inline to avoid oklch parsing
           // First, apply all computed styles as inline styles to preserve colors and formatting
+          
           const applyComputedStyles = (original: Element, cloned: Element) => {
             try {
               const computed = window.getComputedStyle(original);
@@ -1667,10 +1668,24 @@ export default function AnalysisForm() {
                 }
                 
                 try {
-                  // Special handling for gradients - ensure they're preserved
+                  // Special handling for gradients - ensure they're preserved but convert oklch
                   if (prop === 'background' || prop === 'backgroundImage') {
-                    if (value.includes('gradient') || value.includes('linear-gradient') || value.includes('radial-gradient')) {
-                      clonedEl.style.setProperty(prop, value, 'important');
+                    if (value && (value.includes('gradient') || value.includes('linear-gradient') || value.includes('radial-gradient'))) {
+                      // Check if gradient contains oklch
+                      if (value.includes('oklch') || value.includes('oklab')) {
+                        // Convert gradient with oklch to solid color using computed backgroundColor
+                        const solidColor = computed.backgroundColor;
+                        if (solidColor && !solidColor.includes('oklch') && !solidColor.includes('oklab') && 
+                            solidColor !== 'rgba(0, 0, 0, 0)' && solidColor !== 'transparent') {
+                          // Use solid background color instead of gradient
+                          clonedEl.style.setProperty('background-color', solidColor, 'important');
+                          clonedEl.style.setProperty('background-image', 'none', 'important');
+                        }
+                        // Skip applying the gradient with oklch
+                      } else {
+                        // Gradient is safe to apply (no oklch)
+                        clonedEl.style.setProperty(prop, value, 'important');
+                      }
                     } else if (value && value !== 'none' && value !== 'rgba(0, 0, 0, 0)') {
                       clonedEl.style.setProperty(prop, value, 'important');
                     }
@@ -1698,16 +1713,31 @@ export default function AnalysisForm() {
               
               // Always apply gradient if present, even if other checks might skip it
               if (hasGradient) {
-                // Force apply the gradient with all related properties
-                if (computed.backgroundImage && hasGradientInImage) {
-                  clonedEl.style.setProperty('background-image', computed.backgroundImage, 'important');
-                }
-                if (computed.background && hasGradientInBackground) {
-                  clonedEl.style.setProperty('background', computed.background, 'important');
-                }
-                // Also apply background even if gradient is only in backgroundImage
-                if (hasGradientInImage && computed.background) {
-                  clonedEl.style.setProperty('background', computed.background, 'important');
+                // Check if gradients contain oklch - if so, replace with solid color
+                const bgImageHasOklch = computed.backgroundImage && (computed.backgroundImage.includes('oklch') || computed.backgroundImage.includes('oklab'));
+                const bgHasOklch = computed.background && (computed.background.includes('oklch') || computed.background.includes('oklab'));
+                
+                if (bgImageHasOklch || bgHasOklch) {
+                  // Replace gradient with oklch with solid background color
+                  const solidColor = computed.backgroundColor;
+                  if (solidColor && !solidColor.includes('oklch') && !solidColor.includes('oklab') && 
+                      solidColor !== 'rgba(0, 0, 0, 0)' && solidColor !== 'transparent') {
+                    clonedEl.style.setProperty('background-color', solidColor, 'important');
+                    clonedEl.style.setProperty('background-image', 'none', 'important');
+                    clonedEl.style.setProperty('background', solidColor, 'important');
+                  }
+                } else {
+                  // Gradient is safe (no oklch) - apply normally
+                  if (computed.backgroundImage && hasGradientInImage) {
+                    clonedEl.style.setProperty('background-image', computed.backgroundImage, 'important');
+                  }
+                  if (computed.background && hasGradientInBackground) {
+                    clonedEl.style.setProperty('background', computed.background, 'important');
+                  }
+                  // Also apply background even if gradient is only in backgroundImage
+                  if (hasGradientInImage && computed.background) {
+                    clonedEl.style.setProperty('background', computed.background, 'important');
+                  }
                 }
                 if (computed.backgroundSize && computed.backgroundSize !== 'auto') {
                   clonedEl.style.setProperty('background-size', computed.backgroundSize, 'important');
