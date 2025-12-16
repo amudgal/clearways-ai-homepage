@@ -964,18 +964,26 @@ export default function AnalysisForm() {
     const existingIds = new Set(existing.map(r => r.id));
     
     // Merge defaults with existing, but only include default rows that still exist (not deleted)
-    // For cost values, ALWAYS use the calculated default value to ensure accuracy and match subtotals
+    // For cost values: use calculated default value for numeric costs (to match subtotals),
+    // but preserve edited values for descriptive strings (like "Impact: 15-25% waste")
     const merged = defaultRows
       .filter(defaultRow => existingIds.has(defaultRow.id)) // Only include defaults that still exist (not deleted)
       .map((defaultRow) => {
         const existingRow = existing.find(r => r.id === defaultRow.id);
         if (existingRow) {
+          // Check if costValue is a descriptive string (contains "Impact:" or "%") or a calculated number
+          const isDescriptiveString = defaultRow.costValue.includes('Impact:') || 
+                                      defaultRow.costValue.includes('%') ||
+                                      isNaN(Number(defaultRow.costValue.replace(/[^0-9.-]/g, '')));
+          
           return {
             ...defaultRow,
             costLabel: existingRow.costLabel || defaultRow.costLabel,
-            // CRITICAL: Always use calculated costValue from defaults (never from existing stored values)
-            // This ensures individual costs always match the subtotal calculation
-            costValue: defaultRow.costValue, // This is already formatted from formatCostValue(costs.currentState.mstrLicensing)
+            // For descriptive strings (like "Impact: 15-25% waste"), preserve edited value
+            // For calculated numeric costs, use default to ensure accuracy and match subtotals
+            costValue: isDescriptiveString && existingRow.costValue 
+              ? existingRow.costValue 
+              : defaultRow.costValue,
             natureOfCosts: existingRow.natureOfCosts || defaultRow.natureOfCosts,
             costSensitivity: existingRow.costSensitivity || defaultRow.costSensitivity,
             confidenceScore: existingRow.confidenceScore || defaultRow.confidenceScore,
