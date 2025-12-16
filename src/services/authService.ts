@@ -18,7 +18,10 @@ export class AuthService {
     
     // Create AbortController for timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => {
+      console.error('[AuthService] Request timeout after 30 seconds - aborting');
+      controller.abort();
+    }, 30000); // 30 second timeout
     
     try {
       const response = await fetch(`${apiUrl}/auth/otp/send`, {
@@ -77,12 +80,21 @@ export class AuthService {
             message: 'Network error: Cannot connect to server. This could be a CORS issue or the server is down. Please check the browser console for details.' 
           };
         }
-        if (error.message.includes('aborted')) {
-          return { 
-            success: false, 
-            message: 'Request timeout: The server took too long to respond. Please try again.' 
-          };
-        }
+      }
+      
+      // Handle AbortError (timeout or manual abort)
+      if (error instanceof Error && error.name === 'AbortError') {
+        return { 
+          success: false, 
+          message: 'Request timeout: The server took too long to respond (30s). This usually means:\n1. CORS preflight is failing - check Network tab for OPTIONS request\n2. Backend is not responding - check Elastic Beanstalk health\n3. Backend does not support HTTPS - verify HTTPS is configured' 
+        };
+      }
+      
+      if (error instanceof Error && error.message.includes('aborted')) {
+        return { 
+          success: false, 
+          message: 'Request timeout: The server took too long to respond. Please check:\n1. Network tab for CORS errors\n2. Elastic Beanstalk environment health\n3. Backend logs for errors' 
+        };
       }
       
       if (error instanceof Error) {
