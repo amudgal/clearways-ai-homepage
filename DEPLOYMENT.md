@@ -45,14 +45,15 @@ netlify deploy --prod --dir=dist
 The frontend needs to know where the backend API is located. You must set the `VITE_API_URL` environment variable in Netlify:
 
 1. Go to Netlify Dashboard → Your Site → **Site settings** → **Environment variables**
-2. Click **Add variable**
+2. Click **Add variable** (or edit existing `VITE_API_URL` if it already exists)
 3. Add the following:
    - **Key**: `VITE_API_URL`
-   - **Value**: `https://clearways-ai-backend-env.eba-skxjjmed.us-east-1.elasticbeanstalk.com/api` (or your Elastic Beanstalk backend URL)
+   - **Value**: `https://api.clearways.ai/api` (use your custom domain with HTTPS)
    - **⚠️ CRITICAL: Must use HTTPS, not HTTP!** The frontend is served over HTTPS, so the backend must also use HTTPS to avoid Mixed Content errors.
-   - **Scopes**: Select "Production", "Deploy previews", and "Branch deploys" as needed
+   - **⚠️ CRITICAL: Use custom domain `api.clearways.ai`, not Elastic Beanstalk URL!** The SSL certificate is configured for `api.clearways.ai`, so using the Elastic Beanstalk URL will cause certificate errors.
+   - **Scopes**: Select "All scopes" or "Production", "Deploy previews", and "Branch deploys" as needed
 4. Click **Save**
-5. **Important**: After adding the variable, trigger a new deployment (go to **Deploys** tab → **Trigger deploy** → **Deploy site**)
+5. **Important**: After adding/updating the variable, trigger a new deployment (go to **Deploys** tab → **Trigger deploy** → **Deploy site**). Environment variable changes require a new deployment to take effect!
 
 **Important Notes:**
 - **⚠️ MUST USE HTTPS:** The frontend is served over HTTPS (`https://www.clearways.ai`), so the backend URL must also use HTTPS (`https://...`) to avoid Mixed Content errors
