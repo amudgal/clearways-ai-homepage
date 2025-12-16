@@ -1331,8 +1331,8 @@ export default function AnalysisForm() {
         }
       }
 
-      // Analysis Name - same font as Analysis Summary
-      pdf.setFontSize(18);
+      // Analysis Name - use 20pt for better visibility when centered (slightly larger than Analysis Summary for visual balance)
+      pdf.setFontSize(20);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(23, 162, 184); // #17A2B8
       const titleY = logoLoaded ? margin + 120 : margin + 60;
