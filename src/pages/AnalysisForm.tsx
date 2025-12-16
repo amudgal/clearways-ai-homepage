@@ -2673,10 +2673,10 @@ export default function AnalysisForm() {
             </div>
 
             {/* 1. Insights */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-4 rounded-t-lg -mx-6 -mt-6 mb-6">
+            <div className="bg-white rounded-lg shadow-sm p-6" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+              <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-4 rounded-t-lg -mx-6 -mt-6 mb-6" style={{ backgroundColor: '#a855f7', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
-                  <h3>1. Insights</h3>
+                  <h3 style={{ color: 'white', fontWeight: 'bold' }}>1. Insights</h3>
                   {isEditMode && (
                     <button
                       onClick={addInsight}
@@ -2763,11 +2763,11 @@ export default function AnalysisForm() {
             </div>
 
             {/* 2. Negotiated Annual Licensing Costs (Static) */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="bg-[#2C5F7C] text-white px-6 py-4">
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+              <div className="bg-[#2C5F7C] text-white px-6 py-4" style={{ backgroundColor: '#2C5F7C', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3>2. Negotiated Annual Licensing Costs (Static)</h3>
+                    <h3 style={{ color: 'white', fontWeight: 'bold' }}>2. Negotiated Annual Licensing Costs (Static)</h3>
                     <p className="text-sm opacity-90 mt-1 italic">
                       Fixed, contractually committed software costs that do not change with usage once licensing terms are set.
                     </p>
@@ -2823,11 +2823,11 @@ export default function AnalysisForm() {
             </div>
 
             {/* 3. Metered Costs (Running Costs) */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="bg-[#2C5F7C] text-white px-6 py-4">
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+              <div className="bg-[#2C5F7C] text-white px-6 py-4" style={{ backgroundColor: '#2C5F7C', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3>3. Metered Costs (Running Costs)</h3>
+                    <h3 style={{ color: 'white', fontWeight: 'bold' }}>3. Metered Costs (Running Costs)</h3>
                     <p className="text-sm opacity-90 mt-1 italic">
                       Variable, consumption-based infrastructure costs that scale with workload, data volume, and architecture decisions.
                     </p>
@@ -2883,11 +2883,11 @@ export default function AnalysisForm() {
             </div>
 
             {/* 4. Support Costs */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="bg-[#2C5F7C] text-white px-6 py-4">
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+              <div className="bg-[#2C5F7C] text-white px-6 py-4" style={{ backgroundColor: '#2C5F7C', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3>4. Support Costs (Blended - Type & Level of Support Personnel)</h3>
+                    <h3 style={{ color: 'white', fontWeight: 'bold' }}>4. Support Costs (Blended - Type & Level of Support Personnel)</h3>
                     <p className="text-sm opacity-90 mt-1 italic">
                       Ongoing human and vendor effort required to operate, support, and sustain the platform.
                     </p>
@@ -2943,8 +2943,8 @@ export default function AnalysisForm() {
             </div>
 
             {/* 5. Total Costs */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden border-2 border-[#17A2B8]" id="total-costs-section">
-              <div className="bg-gradient-to-r from-[#17A2B8] to-[#2C5F7C] text-white px-6 py-5" style={{ backgroundColor: '#17A2B8', color: 'white' }}>
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden border-2 border-[#17A2B8]" id="total-costs-section" style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', border: '2px solid #17A2B8' }}>
+              <div className="bg-gradient-to-r from-[#17A2B8] to-[#2C5F7C] text-white px-6 py-5" style={{ backgroundColor: '#17A2B8', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-2xl font-bold" style={{ color: 'white', fontWeight: 'bold' }}>5. Total Costs</h3>
@@ -3009,11 +3009,11 @@ export default function AnalysisForm() {
             </div>
 
             {/* 6. Architecture Choice Costs */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="bg-[#5A6C7D] text-white px-6 py-4">
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+              <div className="bg-[#5A6C7D] text-white px-6 py-4" style={{ backgroundColor: '#5A6C7D', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3>6. Architecture Choice Costs (Opportunity Costs)</h3>
+                    <h3 style={{ color: 'white', fontWeight: 'bold' }}>6. Architecture Choice Costs (Opportunity Costs)</h3>
                     <p className="text-sm opacity-90 mt-1 italic">
                       Costs driven by design decisions rather than vendor pricing—these are controllable but often underestimated.
                     </p>
@@ -3094,12 +3094,12 @@ export default function AnalysisForm() {
             </div>
 
             {/* 7. Assumptions */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="bg-[#F59E0B] text-white px-6 py-4">
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+              <div className="bg-[#F59E0B] text-white px-6 py-4" style={{ backgroundColor: '#F59E0B', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3>7. Assumptions</h3>
-                    <p className="text-sm opacity-90 mt-1">
+                    <h3 style={{ color: 'white', fontWeight: 'bold' }}>7. Assumptions</h3>
+                    <p className="text-sm opacity-90 mt-1" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
                       Explicit assumptions prevent misalignment later when costs vary from estimates.
                     </p>
                   </div>
@@ -3174,8 +3174,8 @@ export default function AnalysisForm() {
             </div>
 
             {/* 8. Questions & Answers */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-4" style={{ backgroundColor: '#22c55e', color: 'white' }}>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+              <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-4" style={{ backgroundColor: '#22c55e', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <h3 style={{ color: 'white', fontWeight: 'bold' }}>8. Questions & Answers</h3>
                   {isEditMode && (
@@ -3265,8 +3265,8 @@ export default function AnalysisForm() {
             </div>
 
             {/* 9. Terms */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="bg-gray-700 text-white px-6 py-4" style={{ backgroundColor: '#374151', color: 'white' }}>
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
+              <div className="bg-gray-700 text-white px-6 py-4" style={{ backgroundColor: '#374151', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <div className="flex items-center justify-between">
                   <h3 style={{ color: 'white', fontWeight: 'bold' }}>9. Terms</h3>
                   {isEditMode && (
