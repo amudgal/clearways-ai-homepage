@@ -541,11 +541,11 @@ router.post('/credential-users', async (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'Username, password, and tenant_id are required' });
     }
 
-    // Validate username format (alphanumeric and underscore, 3-50 chars)
-    const usernameRegex = /^[a-zA-Z0-9_]{3,50}$/;
-    if (!usernameRegex.test(username)) {
+    // Validate username format (must be a valid email address)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(username)) {
       return res.status(400).json({ 
-        error: 'Username must be 3-50 characters and contain only letters, numbers, and underscores' 
+        error: 'Username must be a valid email address' 
       });
     }
 
@@ -647,11 +647,11 @@ router.put('/credential-users/:id', async (req: AuthRequest, res) => {
     let paramCount = 1;
 
     if (username !== undefined) {
-      // Validate username format
-      const usernameRegex = /^[a-zA-Z0-9_]{3,50}$/;
-      if (!usernameRegex.test(username)) {
+      // Validate username format (must be a valid email address)
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(username)) {
         return res.status(400).json({ 
-          error: 'Username must be 3-50 characters and contain only letters, numbers, and underscores' 
+          error: 'Username must be a valid email address' 
         });
       }
 

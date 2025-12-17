@@ -673,19 +673,24 @@ function CredentialUserForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Username *
+              Username (Email Address) *
             </label>
             <input
-              type="text"
+              type="email"
               value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              placeholder="e.g., amex_user1"
+              onChange={(e) => {
+                const emailValue = e.target.value.toLowerCase();
+                setFormData({ 
+                  ...formData, 
+                  username: emailValue,
+                  email: emailValue // Auto-populate email field
+                });
+              }}
+              placeholder="user@example.com"
               required
-              pattern="[a-zA-Z0-9_]{3,50}"
-              title="3-50 characters, letters, numbers, and underscores only"
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#17A2B8]"
             />
-            <p className="text-xs text-gray-500 mt-1">3-50 characters, alphanumeric and underscore only</p>
+            <p className="text-xs text-gray-500 mt-1">Enter the user's email address (will be used as username)</p>
           </div>
 
           <div>
@@ -715,15 +720,17 @@ function CredentialUserForm({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email (Optional)
+              Email (Auto-filled from username)
             </label>
             <input
               type="email"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase() })}
               placeholder="user@example.com"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#17A2B8]"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#17A2B8]"
+              readOnly
             />
+            <p className="text-xs text-gray-500 mt-1">Email is automatically set from username</p>
           </div>
 
           <div>
