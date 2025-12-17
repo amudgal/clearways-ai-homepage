@@ -147,6 +147,7 @@ export default function AnalysisForm() {
   const [hasSavedResults, setHasSavedResults] = useState(false);
   const [versions, setVersions] = useState<Array<{ version_number: number; created_at: string; created_by_email: string }>>([]);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [architectureDiagramImage, setArchitectureDiagramImage] = useState<string | null>(null);
   const [currentVersionNumber, setCurrentVersionNumber] = useState<number | null>(null);
 
   // Load versions for an analysis
@@ -172,6 +173,80 @@ export default function AnalysisForm() {
 
     loadVersions();
   }, [id]);
+
+  // Capture MicroStrategy Architecture Diagram as image when results are shown
+  useEffect(() => {
+    if (!showResults) {
+      setArchitectureDiagramImage(null);
+      return;
+    }
+
+    const captureArchitectureDiagram = async () => {
+      try {
+        const archUrl = 'https://arch.customer.cloud.microstrategy.com/';
+        
+        // Create a hidden iframe to load the architecture diagram
+        const iframe = document.createElement('iframe');
+        iframe.src = archUrl;
+        iframe.style.width = '1216px';
+        iframe.style.height = '800px';
+        iframe.style.border = 'none';
+        iframe.style.position = 'absolute';
+        iframe.style.left = '-99999px';
+        iframe.style.top = '0';
+        document.body.appendChild(iframe);
+        
+        // Wait for iframe to load
+        await new Promise((resolve) => {
+          iframe.onload = () => {
+            setTimeout(resolve, 3000); // Give time for content to render
+          };
+          iframe.onerror = () => {
+            console.warn('Could not load architecture diagram iframe');
+            resolve(null);
+          };
+          // Timeout after 8 seconds
+          setTimeout(() => {
+            resolve(null);
+          }, 8000);
+        });
+        
+        try {
+          // Try to capture the iframe content
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+          if (iframeDoc && iframeDoc.body) {
+            const archCanvas = await html2canvas(iframeDoc.body, {
+              useCORS: true,
+              allowTaint: true,
+              scale: 0.8, // Slightly lower scale for better performance
+              logging: false,
+            });
+            
+            const archImgData = archCanvas.toDataURL('image/png');
+            setArchitectureDiagramImage(archImgData);
+          }
+        } catch (e) {
+          console.warn('Could not capture architecture diagram:', e);
+        } finally {
+          // Clean up iframe
+          if (iframe.parentNode) {
+            document.body.removeChild(iframe);
+          }
+        }
+      } catch (error) {
+        console.warn('Error capturing architecture diagram:', error);
+      }
+    };
+
+    // Delay capture slightly to ensure page is ready
+    const timer = setTimeout(() => {
+      captureArchitectureDiagram();
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [showResults]);
 
   // Load saved analysis data when viewing an existing analysis
   useEffect(() => {
@@ -1566,7 +1641,7 @@ export default function AnalysisForm() {
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(23, 162, 184); // #17A2B8
         let archYPos = margin + 25;
-        pdf.text('MicroStrategy Architecture', pageWidth / 2, archYPos, { align: 'center' });
+        pdf.text('Cost Analysis Report', pageWidth / 2, archYPos, { align: 'center' });
         archYPos += 20;
         
         // Try to capture the MicroStrategy architecture page
@@ -2903,29 +2978,50 @@ export default function AnalysisForm() {
               <div className="bg-gradient-to-r from-[#17A2B8] to-[#138C9E] text-white px-6 py-4 rounded-t-lg -mx-6 -mt-6 mb-6" style={{ backgroundColor: '#17A2B8', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <h3 style={{ color: 'white', fontWeight: 'bold' }}>MicroStrategy Architecture</h3>
               </div>
-              <div className="mt-4 w-full" style={{ aspectRatio: '16/9', minHeight: '600px' }}>
-                <iframe
-                  src="https://arch.customer.cloud.microstrategy.com/"
-                  className="w-full h-full border border-gray-300 rounded-lg"
-                  style={{ 
-                    width: '100%',
-                    height: '100%',
-                    display: 'block'
-                  }}
-                  title="MicroStrategy Architecture Diagram"
-                  allow="fullscreen"
-                />
-                <p className="text-sm text-gray-500 mt-2 text-center">
-                  Interactive MicroStrategy Architecture Diagram - 
-                  <a 
-                    href="https://arch.customer.cloud.microstrategy.com/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-[#17A2B8] hover:underline ml-1"
-                  >
-                    Open in new tab
-                  </a>
-                </p>
+              <div className="mt-4 w-full">
+                {architectureDiagramImage ? (
+                  <div className="w-full">
+                    <img
+                      src={architectureDiagramImage}
+                      alt="MicroStrategy Architecture Diagram"
+                      className="w-full border border-gray-300 rounded-lg"
+                      style={{ 
+                        width: '100%',
+                        height: 'auto',
+                        display: 'block'
+                      }}
+                    />
+                    <p className="text-sm text-gray-500 mt-2 text-center">
+                      MicroStrategy Architecture Diagram - 
+                      <a 
+                        href="https://arch.customer.cloud.microstrategy.com/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[#17A2B8] hover:underline ml-1"
+                      >
+                        View interactive version
+                      </a>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="w-full border border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center" style={{ minHeight: '600px', aspectRatio: '16/9' }}>
+                    <div className="text-center text-gray-500">
+                      <p className="mb-2">Loading MicroStrategy Architecture Diagram...</p>
+                      <iframe
+                        src="https://arch.customer.cloud.microstrategy.com/"
+                        className="w-full h-full border-0 rounded-lg"
+                        style={{ 
+                          width: '100%',
+                          height: '100%',
+                          display: 'block',
+                          minHeight: '600px'
+                        }}
+                        title="MicroStrategy Architecture Diagram"
+                        allow="fullscreen"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
