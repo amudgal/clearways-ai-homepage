@@ -216,6 +216,53 @@ export default function Login() {
             </form>
           )}
 
+          {step === 'email' && loginMethod === 'credentials' && (
+            <form onSubmit={handleCredentialLogin} className="space-y-6">
+              <div>
+                <label htmlFor="username" className="block text-gray-700 mb-2">
+                  Username
+                </label>
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#17A2B8] focus:border-[#17A2B8]"
+                  placeholder="Enter your username"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-gray-700 mb-2">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#17A2B8] focus:border-[#17A2B8]"
+                  placeholder="Enter your password"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-[#17A2B8] hover:bg-[#138C9E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#17A2B8] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isLoading ? 'Logging in...' : 'Login'}
+                {!isLoading && <ArrowRight size={18} />}
+              </button>
+            </form>
+          )}
+
           {step === 'otp' && (
             <form onSubmit={handleVerifyOTP} className="space-y-6">
               {/* Development OTP Display */}
