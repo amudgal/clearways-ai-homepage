@@ -189,12 +189,14 @@ router.post('/otp/verify', async (req, res) => {
     // Clean up OTP
     await pool.query('DELETE FROM site_otp_store WHERE email = $1', [email]);
 
-    // Audit log
-    await pool.query(
-      `INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, metadata)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [userId, tenantId, 'LOGIN', 'user', JSON.stringify({ email })]
-    );
+    // Audit log - only log OTP logins from non-clearways.ai domains
+    if (domain !== 'clearways.ai') {
+      await pool.query(
+        `INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, metadata)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [userId, tenantId, 'LOGIN', 'user', JSON.stringify({ email, method: 'OTP', domain })]
+      );
+    }
 
     res.json({
       success: true,
