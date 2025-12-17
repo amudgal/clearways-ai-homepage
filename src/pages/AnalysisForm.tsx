@@ -559,21 +559,26 @@ export default function AnalysisForm() {
   const calculateCosts = () => {
     const mstrLicensing = Number(formData.mstrLicensingCost || 0) * Number(formData.numberOfInstances || 0);
     const ancillaryLicensing = Number(formData.ancillaryLicensingPercentage || 0); // Other Licensing Costs - dollar amount
-    const cloudPersonnel = Number(formData.cloudSupportCosts || 0); // Cloud Support costs - In-house staff costs
+    const cloudSupportCosts = Number(formData.cloudSupportCosts || 0); // Cloud Support costs - In-house staff costs
     const mstrSupport = Number(formData.mstrSupportCosts || 0); // Professional Services (Strategy + Vendor)
+    const supportServicesCost = calculateSupportServicesCost(); // Support & Services cost
+    const supportServicesTotal = supportServicesCost + mstrSupport; // Support & Services Total costs
+    // Cloud Personnel costs = Cloud Support Costs + Support & Services Total costs
+    const cloudPersonnel = cloudSupportCosts + supportServicesTotal;
     
     // Cloud Infrastructure Costs from Architecture Calculator
     const totalCloudInfra = getArchitectureTotal();
     
-    const totalCurrentState = mstrLicensing + ancillaryLicensing + cloudPersonnel + mstrSupport + totalCloudInfra;
+    const totalCurrentState = mstrLicensing + ancillaryLicensing + cloudPersonnel + totalCloudInfra;
     
     // ClearWays Managed Model (30% savings on infrastructure, 40% on personnel)
     const clearwaysMstrLicensing = mstrLicensing;
     const clearwaysAncillary = ancillaryLicensing;
     const clearwaysCloudInfra = totalCloudInfra * 0.7; // 30% savings
-    const clearwaysPersonnel = cloudPersonnel * 0.6; // 40% savings (will be 0)
+    // Apply 40% savings only to Cloud Support Costs, not to Support & Services Total
+    const clearwaysPersonnel = (cloudSupportCosts * 0.6) + supportServicesTotal; // 40% savings on Cloud Support Costs only
     const clearwaysMstrSupport = mstrSupport;
-    const totalClearways = clearwaysMstrLicensing + clearwaysAncillary + clearwaysCloudInfra + clearwaysPersonnel + clearwaysMstrSupport;
+    const totalClearways = clearwaysMstrLicensing + clearwaysAncillary + clearwaysCloudInfra + clearwaysPersonnel;
     
     const totalSavings = totalCurrentState - totalClearways;
     const savingsPercentage = totalCurrentState > 0 ? (totalSavings / totalCurrentState) * 100 : 0;
