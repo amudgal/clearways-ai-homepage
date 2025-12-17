@@ -1690,8 +1690,8 @@ export default function AnalysisForm() {
           const cloneForExport = resultsElement.cloneNode(true) as HTMLElement;
           
           // Hide MicroStrategy Architecture card in the clone
-          const allDivs = cloneForExport.querySelectorAll('div');
-          allDivs.forEach(div => {
+          const architectureDivs = cloneForExport.querySelectorAll('div');
+          architectureDivs.forEach(div => {
             const htmlDiv = div as HTMLElement;
             // Check if this div contains "MicroStrategy Architecture" text
             if (htmlDiv.textContent?.includes('MicroStrategy Architecture')) {
