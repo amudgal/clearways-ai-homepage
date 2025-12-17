@@ -1661,79 +1661,6 @@ export default function AnalysisForm() {
       pdf.setTextColor(200, 230, 240); // Light teal/white for contrast
       pdf.text('Comprehensive cost analysis and recommendations', titleX, titleYPos + 10);
 
-      // Add MicroStrategy Architecture Diagram as image if available
-      if (architectureDiagramImage) {
-        console.log('Adding architecture diagram to PDF, data URL length:', architectureDiagramImage.length);
-        pdf.addPage();
-        
-        // Add header with logo
-        if (logoImg.complete && logoImg.naturalWidth > 0) {
-          try {
-            const logoWidth = 15;
-            const logoHeight = (logoImg.naturalHeight / logoImg.naturalWidth) * logoWidth;
-            pdf.addImage(logoImg, 'PNG', margin, margin + 2, logoWidth, logoHeight);
-          } catch (e) {
-            // Ignore logo errors
-          }
-        }
-        
-        // Add section title
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(23, 162, 184); // #17A2B8
-        let archYPos = margin + 25;
-        pdf.text('MicroStrategy Architecture', margin, archYPos);
-        archYPos += 10;
-        
-        try {
-          // Load image to get dimensions
-          const archImg = new Image();
-          archImg.src = architectureDiagramImage;
-          
-          await new Promise((resolve) => {
-            if (archImg.complete) {
-              resolve(null);
-            } else {
-              archImg.onload = () => resolve(null);
-              archImg.onerror = () => {
-                console.error('Failed to load architecture image');
-                resolve(null); // Continue anyway
-              };
-            }
-            // Timeout after 3 seconds
-            setTimeout(() => resolve(null), 3000);
-          });
-          
-          const archImgWidth = pageWidth - (margin * 2);
-          let archImgHeight = archImgWidth * 0.75; // Default aspect ratio
-          
-          if (archImg.complete && archImg.naturalWidth > 0 && archImg.naturalHeight > 0) {
-            archImgHeight = (archImg.naturalHeight / archImg.naturalWidth) * archImgWidth;
-            console.log('Architecture image dimensions:', archImg.naturalWidth, 'x', archImg.naturalHeight);
-          }
-          
-          console.log('Adding architecture image to PDF, size:', archImgWidth, 'x', archImgHeight);
-          
-          // Check if image fits on current page, otherwise add new page
-          if (archYPos + archImgHeight > pageHeight - margin - 15) {
-            pdf.addPage();
-            archYPos = margin + 20;
-          }
-          
-          // Add image directly from data URL - jsPDF supports data URLs
-          pdf.addImage(architectureDiagramImage, 'PNG', margin, archYPos, archImgWidth, archImgHeight);
-          console.log('Architecture diagram added to PDF successfully');
-        } catch (e) {
-          console.error('Error adding architecture diagram to PDF:', e);
-          // Add a placeholder text
-          pdf.setFontSize(10);
-          pdf.setTextColor(100, 100, 100);
-          pdf.text('Architecture diagram could not be loaded', margin, archYPos);
-        }
-      } else {
-        console.log('No architecture diagram image available for PDF export');
-      }
-
       // Capture the results section (from Insights onwards)
       const resultsElement = document.getElementById('results');
       if (!resultsElement) {
@@ -1761,6 +1688,22 @@ export default function AnalysisForm() {
       try {
           // Create a deep clone - keep it in the DOM with stylesheets intact
           const cloneForExport = resultsElement.cloneNode(true) as HTMLElement;
+          
+          // Hide MicroStrategy Architecture card in the clone
+          const allDivs = cloneForExport.querySelectorAll('div');
+          allDivs.forEach(div => {
+            const htmlDiv = div as HTMLElement;
+            // Check if this div contains "MicroStrategy Architecture" text
+            if (htmlDiv.textContent?.includes('MicroStrategy Architecture')) {
+              // Check if it's the card container (has border-2 or border styling)
+              const hasCardStyling = htmlDiv.getAttribute('class')?.includes('border-2') ||
+                                     htmlDiv.getAttribute('style')?.includes('border') ||
+                                     (htmlDiv.querySelector('h3') && htmlDiv.querySelector('h3')?.textContent?.includes('MicroStrategy Architecture'));
+              if (hasCardStyling) {
+                htmlDiv.style.display = 'none';
+              }
+            }
+          });
           
           // Create a container to hold the clone - visible but off-screen for html2canvas
           const hiddenContainer = document.createElement('div');
