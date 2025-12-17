@@ -2836,17 +2836,20 @@ export default function AnalysisForm() {
         {/* Results Section */}
         {showResults && costs && (
           <div id="results" className="space-y-8">
-            {/* Header */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-gray-900">Cost Analysis Report</h2>
+            {/* Report Header */}
+            <div className="bg-gradient-to-r from-[#17A2B8] to-[#138C9E] text-white rounded-lg shadow-lg p-8 mb-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-4xl font-bold mb-2">Cost Analysis Report</h1>
+                  <p className="text-[#17A2B8]/90 text-lg">Comprehensive cost analysis and recommendations</p>
+                </div>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setIsEditMode(!isEditMode)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                       isEditMode
-                        ? 'bg-[#17A2B8] text-white hover:bg-[#138C9E]'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-white text-[#17A2B8] hover:bg-gray-100'
+                        : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
                     }`}
                   >
                     {isEditMode ? <X size={18} /> : <Edit2 size={18} />}
@@ -2854,15 +2857,17 @@ export default function AnalysisForm() {
                   </button>
                   <button
                     onClick={handleExportPDF}
-                    className="flex items-center gap-2 text-[#17A2B8] hover:text-[#138C9E] transition-colors"
+                    className="flex items-center gap-2 bg-white text-[#17A2B8] hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors font-medium"
                   >
                     <Download size={20} />
                     Export Report
                   </button>
                 </div>
               </div>
+            </div>
 
-              {/* Instance Configuration */}
+            {/* Instance Configuration */}
+            <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                 <h3 className="text-gray-900 mb-4">Instance Configuration</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
