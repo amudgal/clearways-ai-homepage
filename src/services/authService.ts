@@ -134,6 +134,7 @@ export class AuthService {
       // Map backend user to frontend User type
       const user: User = {
         id: data.user.id,
+        username: data.user.username,
         email: data.user.email,
         domain: data.user.domain || email.split('@')[1]?.toLowerCase() || '',
         tenant_id: data.user.tenant_id,
@@ -190,6 +191,58 @@ export class AuthService {
   }
 
   /**
+   * Credential-based login (username/password)
+   */
+  static async loginWithCredentials(username: string, password: string): Promise<{ success: boolean; user?: User; token?: string; message: string }> {
+    try {
+      const response = await fetch(`${getApiUrl()}/auth/credentials/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { success: false, message: data.error || 'Failed to login' };
+      }
+
+      if (!data.success || !data.user || !data.token) {
+        return { success: false, message: data.message || 'Authentication failed' };
+      }
+
+      // Map backend user to frontend User type
+      const user: User = {
+        id: data.user.id,
+        username: data.user.username,
+        email: data.user.email || '',
+        domain: data.user.domain || '',
+        tenant_id: data.user.tenant_id,
+        role: data.user.role as UserRole,
+        created_at: data.user.created_at || new Date().toISOString(),
+        last_login_at: data.user.last_login_at || new Date().toISOString(),
+      };
+
+      // Store JWT token and user from backend
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('isLoggedIn', 'true');
+
+      return {
+        success: true,
+        user,
+        token: data.token,
+        message: data.message || 'Authentication successful',
+      };
+    } catch (error) {
+      console.error('Credential login error:', error);
+      return { success: false, message: 'Failed to login. Please try again.' };
+    }
+  }
+
+  /**
    * Get current user from backend API (validates token)
    */
   static async refreshUser(): Promise<User | null> {
@@ -213,6 +266,7 @@ export class AuthService {
       const data = await response.json();
       const user: User = {
         id: data.user.id,
+        username: data.user.username,
         email: data.user.email,
         domain: data.user.domain || '',
         tenant_id: data.user.tenant_id,

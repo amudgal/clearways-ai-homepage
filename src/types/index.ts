@@ -5,6 +5,7 @@ export type AnalysisStatus = 'LIVE' | 'SAVED' | 'LOCKED';
 export type HostingEnvironment = 'AWS' | 'GCP' | 'Azure';
 
 export interface User {
+  username?: string;
   id: string;
   email: string;
   domain: string;

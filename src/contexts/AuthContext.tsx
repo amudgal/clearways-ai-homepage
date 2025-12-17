@@ -9,6 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, otp: string) => Promise<{ success: boolean; message: string }>;
+  loginWithCredentials: (username: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   sendOTP: (email: string) => Promise<{ success: boolean; message: string; otp?: string }>;
 }
@@ -46,6 +47,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: false, message: result.message };
   };
 
+  const loginWithCredentials = async (username: string, password: string) => {
+    const result = await AuthService.loginWithCredentials(username, password);
+    if (result.success && result.user) {
+      setUser(result.user);
+      return { success: true, message: result.message };
+    }
+    return { success: false, message: result.message };
+  };
+
   const logout = () => {
     AuthService.logout();
     setUser(null);
@@ -58,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isLoading,
         login,
+        loginWithCredentials,
         logout,
         sendOTP,
       }}

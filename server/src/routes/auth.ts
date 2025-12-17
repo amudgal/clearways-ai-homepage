@@ -6,6 +6,7 @@ import { pool } from '../config/database';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/database';
 import { sendOTPEmail, isEmailConfigured } from '../services/emailService';
+import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 
@@ -229,7 +230,7 @@ router.get('/me', async (req, res) => {
     const decoded = jwt.verify(token, secret) as { userId: string };
     
     const result = await pool.query(
-      `SELECT id, email, domain, tenant_id, role, created_at, last_login_at
+      `SELECT id, email, username, domain, tenant_id, role, created_at, last_login_at
        FROM site_users 
        WHERE id = $1`,
       [decoded.userId]
@@ -246,6 +247,78 @@ router.get('/me', async (req, res) => {
     }
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to get user' });
+  }
+});
+
+// Credential-based login (username/password)
+router.post('/credentials/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+
+    // Find user by username
+    const userResult = await pool.query(
+      `SELECT id, email, username, password_hash, tenant_id, role, domain
+       FROM site_users 
+       WHERE username = $1 AND password_hash IS NOT NULL`,
+      [username]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Verify password
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    // Update last login
+    await pool.query(
+      'UPDATE site_users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [user.id]
+    );
+
+    // Generate JWT token
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET not configured');
+    }
+
+    const payload: object = { userId: String(user.id) };
+    const expiresIn: string | number = process.env.JWT_EXPIRES_IN || '7d';
+    
+    const token = jwt.sign(payload, secret as string, { expiresIn } as jwt.SignOptions);
+
+    // Audit log
+    await pool.query(
+      `INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, metadata)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, user.tenant_id, 'LOGIN', 'user', JSON.stringify({ username, method: 'CREDENTIALS' })]
+    );
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        tenant_id: user.tenant_id,
+        role: user.role,
+        domain: user.domain,
+      },
+      token,
+      message: 'Authentication successful',
+    });
+  } catch (error) {
+    console.error('Credential login error:', error);
+    res.status(500).json({ error: 'Authentication failed' });
   }
 });
 

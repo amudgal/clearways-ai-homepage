@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, ArrowRight, CheckCircle } from 'lucide-react';
+import { Mail, ArrowRight, CheckCircle, Key } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, sendOTP } = useAuth();
+  const { login, loginWithCredentials, sendOTP } = useAuth();
+  const [loginMethod, setLoginMethod] = useState<'otp' | 'credentials'>('otp');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<'email' | 'otp' | 'success'>('email');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [step, setStep] = useState<'email' | 'otp' | 'credentials' | 'success'>('email');
   const [isLoading, setIsLoading] = useState(false);
   const [displayedOTP, setDisplayedOTP] = useState<string | null>(null);
 
@@ -95,6 +98,31 @@ export default function Login() {
     }
   };
 
+  const handleCredentialLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!username || !password) {
+      toast.error('Please enter both username and password');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const result = await loginWithCredentials(username, password);
+      if (result.success) {
+        setStep('success');
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      toast.error('Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -104,18 +132,58 @@ export default function Login() {
           </div>
         </div>
         <h2 className="mt-6 text-center text-gray-900">
-          Corporate Login
+          {loginMethod === 'otp' ? 'Corporate Login' : 'Credential Login'}
         </h2>
         <p className="mt-2 text-center text-gray-600">
-          {step === 'email' && 'Enter your corporate email to receive a one-time password'}
+          {step === 'email' && loginMethod === 'otp' && 'Enter your corporate email to receive a one-time password'}
+          {step === 'email' && loginMethod === 'credentials' && 'Enter your username and password'}
           {step === 'otp' && 'Enter the 6-digit code sent to your email'}
+          {step === 'credentials' && 'Enter your credentials'}
           {step === 'success' && 'Login successful!'}
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-lg sm:rounded-lg sm:px-10">
+          {/* Login Method Toggle */}
           {step === 'email' && (
+            <div className="mb-6 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMethod('otp');
+                  setEmail('');
+                  setOtp('');
+                }}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                  loginMethod === 'otp'
+                    ? 'bg-[#17A2B8] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Mail className="w-4 h-4 inline mr-2" />
+                Email OTP
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMethod('credentials');
+                  setUsername('');
+                  setPassword('');
+                }}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                  loginMethod === 'credentials'
+                    ? 'bg-[#17A2B8] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Key className="w-4 h-4 inline mr-2" />
+                Have Credentials
+              </button>
+            </div>
+          )}
+
+          {step === 'email' && loginMethod === 'otp' && (
             <form onSubmit={handleSendOTP} className="space-y-6">
               <div>
                 <label htmlFor="email" className="block text-gray-700 mb-2">
@@ -233,7 +301,7 @@ export default function Login() {
               <div>
                 <h3 className="text-gray-900 mb-2">Welcome back!</h3>
                 <p className="text-gray-600">
-                  You have successfully logged in with {email}
+                  You have successfully logged in {loginMethod === 'otp' ? `with ${email}` : `as ${username}`}
                 </p>
               </div>
               <button

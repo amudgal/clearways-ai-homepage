@@ -4,6 +4,7 @@
 import express from 'express';
 import { pool } from '../config/database';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
+import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 
@@ -505,6 +506,306 @@ router.delete('/tenants/:id', async (req: AuthRequest, res) => {
   } catch (error) {
     console.error('Delete tenant error:', error);
     res.status(500).json({ error: 'Failed to delete tenant' });
+  }
+});
+
+// ========== CREDENTIAL USER MANAGEMENT ROUTES ==========
+
+// Get all credential users (users with username/password)
+router.get('/credential-users', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.username, u.email, u.domain, u.tenant_id, u.role, 
+              u.created_at, u.last_login_at,
+              t.name as tenant_name
+       FROM site_users u
+       LEFT JOIN site_tenants t ON u.tenant_id = t.id
+       WHERE u.username IS NOT NULL AND u.password_hash IS NOT NULL
+       ORDER BY u.created_at DESC`
+    );
+
+    res.json({ users: result.rows });
+  } catch (error) {
+    console.error('Get credential users error:', error);
+    res.status(500).json({ error: 'Failed to fetch credential users' });
+  }
+});
+
+// Create credential user
+router.post('/credential-users', async (req: AuthRequest, res) => {
+  try {
+    const { username, password, email, tenant_id, role = 'USER' } = req.body;
+    const adminUserId = req.user!.id;
+
+    if (!username || !password || !tenant_id) {
+      return res.status(400).json({ error: 'Username, password, and tenant_id are required' });
+    }
+
+    // Validate username format (alphanumeric and underscore, 3-50 chars)
+    const usernameRegex = /^[a-zA-Z0-9_]{3,50}$/;
+    if (!usernameRegex.test(username)) {
+      return res.status(400).json({ 
+        error: 'Username must be 3-50 characters and contain only letters, numbers, and underscores' 
+      });
+    }
+
+    // Validate password strength (minimum 8 characters)
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+    }
+
+    // Check if username already exists
+    const existingUser = await pool.query(
+      'SELECT id FROM site_users WHERE username = $1',
+      [username]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+
+    // Check if email is provided and if it already exists
+    if (email) {
+      const existingEmail = await pool.query(
+        'SELECT id FROM site_users WHERE email = $1',
+        [email]
+      );
+      if (existingEmail.rows.length > 0) {
+        return res.status(400).json({ error: 'Email already exists' });
+      }
+    }
+
+    // Verify tenant exists
+    const tenantResult = await pool.query(
+      'SELECT id, name, domain FROM site_tenants WHERE id = $1',
+      [tenant_id]
+    );
+
+    if (tenantResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Tenant not found' });
+    }
+
+    const tenant = tenantResult.rows[0];
+
+    // Hash password
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Determine domain (use tenant domain if email not provided)
+    const domain = email ? email.split('@')[1]?.toLowerCase() : tenant.domain;
+
+    // Create user
+    const result = await pool.query(
+      `INSERT INTO site_users (username, password_hash, email, domain, tenant_id, role, last_login_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NULL)
+       RETURNING id, username, email, domain, tenant_id, role, created_at`,
+      [username, passwordHash, email || null, domain, tenant_id, role]
+    );
+
+    const newUser = result.rows[0];
+
+    // Audit log
+    await pool.query(
+      `INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, target_id, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        adminUserId,
+        tenant_id,
+        'CREATE_CREDENTIAL_USER',
+        'user',
+        newUser.id,
+        JSON.stringify({ username, email: email || null, tenant_name: tenant.name }),
+      ]
+    );
+
+    res.status(201).json({ user: newUser });
+  } catch (error) {
+    console.error('Create credential user error:', error);
+    res.status(500).json({ error: 'Failed to create credential user' });
+  }
+});
+
+// Update credential user
+router.put('/credential-users/:id', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { username, password, email, tenant_id, role } = req.body;
+    const adminUserId = req.user!.id;
+
+    // Check if user exists and is a credential user
+    const existingUser = await pool.query(
+      'SELECT * FROM site_users WHERE id = $1 AND username IS NOT NULL',
+      [id]
+    );
+
+    if (existingUser.rows.length === 0) {
+      return res.status(404).json({ error: 'Credential user not found' });
+    }
+
+    const updates: string[] = [];
+    const params: any[] = [];
+    let paramCount = 1;
+
+    if (username !== undefined) {
+      // Validate username format
+      const usernameRegex = /^[a-zA-Z0-9_]{3,50}$/;
+      if (!usernameRegex.test(username)) {
+        return res.status(400).json({ 
+          error: 'Username must be 3-50 characters and contain only letters, numbers, and underscores' 
+        });
+      }
+
+      // Check if username already exists (excluding current user)
+      const usernameCheck = await pool.query(
+        'SELECT id FROM site_users WHERE username = $1 AND id != $2',
+        [username, id]
+      );
+
+      if (usernameCheck.rows.length > 0) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
+
+      updates.push(`username = $${paramCount++}`);
+      params.push(username);
+    }
+
+    if (password !== undefined) {
+      // Validate password strength
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+      }
+
+      // Hash password
+      const saltRounds = 10;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+      updates.push(`password_hash = $${paramCount++}`);
+      params.push(passwordHash);
+    }
+
+    if (email !== undefined) {
+      // Check if email already exists (excluding current user)
+      if (email) {
+        const emailCheck = await pool.query(
+          'SELECT id FROM site_users WHERE email = $1 AND id != $2',
+          [email, id]
+        );
+
+        if (emailCheck.rows.length > 0) {
+          return res.status(400).json({ error: 'Email already exists' });
+        }
+      }
+
+      updates.push(`email = $${paramCount++}`);
+      params.push(email || null);
+
+      // Update domain if email changed
+      if (email) {
+        const domain = email.split('@')[1]?.toLowerCase();
+        if (domain) {
+          updates.push(`domain = $${paramCount++}`);
+          params.push(domain);
+        }
+      }
+    }
+
+    if (tenant_id !== undefined) {
+      // Verify tenant exists
+      const tenantCheck = await pool.query(
+        'SELECT id FROM site_tenants WHERE id = $1',
+        [tenant_id]
+      );
+
+      if (tenantCheck.rows.length === 0) {
+        return res.status(400).json({ error: 'Tenant not found' });
+      }
+
+      updates.push(`tenant_id = $${paramCount++}`);
+      params.push(tenant_id);
+    }
+
+    if (role !== undefined) {
+      if (!['USER', 'ADMIN'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid role' });
+      }
+      updates.push(`role = $${paramCount++}`);
+      params.push(role);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    params.push(id);
+
+    const result = await pool.query(
+      `UPDATE site_users 
+       SET ${updates.join(', ')}
+       WHERE id = $${paramCount}
+       RETURNING id, username, email, domain, tenant_id, role, created_at, last_login_at`,
+      params
+    );
+
+    // Audit log
+    await pool.query(
+      `INSERT INTO site_audit_logs (user_id, action, target_type, target_id, metadata)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        adminUserId,
+        'UPDATE_CREDENTIAL_USER',
+        'user',
+        id,
+        JSON.stringify({ username, email, tenant_id, role }),
+      ]
+    );
+
+    res.json({ user: result.rows[0] });
+  } catch (error) {
+    console.error('Update credential user error:', error);
+    res.status(500).json({ error: 'Failed to update credential user' });
+  }
+});
+
+// Delete credential user
+router.delete('/credential-users/:id', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const adminUserId = req.user!.id;
+
+    // Check if user exists
+    const existingUser = await pool.query(
+      'SELECT * FROM site_users WHERE id = $1',
+      [id]
+    );
+
+    if (existingUser.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Don't allow deleting yourself
+    if (id === adminUserId) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    // Delete user
+    await pool.query('DELETE FROM site_users WHERE id = $1', [id]);
+
+    // Audit log
+    await pool.query(
+      `INSERT INTO site_audit_logs (user_id, action, target_type, target_id, metadata)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        adminUserId,
+        'DELETE_CREDENTIAL_USER',
+        'user',
+        id,
+        JSON.stringify({ username: existingUser.rows[0].username }),
+      ]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete credential user error:', error);
+    res.status(500).json({ error: 'Failed to delete credential user' });
   }
 });
 
