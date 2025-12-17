@@ -3313,7 +3313,7 @@ export default function AnalysisForm() {
                             <div className="text-sm opacity-90 mt-1 font-normal">All-inclusive annual projection</div>
                           </div>
                           <div className="text-right">
-                            <div className="text-3xl font-bold">${formatCostValue(costs.currentState.total)}</div>
+                            <div className="text-3xl font-bold" style={{ fontSize: '45px' }}>${formatCostValue(costs.currentState.total)}</div>
                             <div className="text-sm opacity-90 mt-1 font-normal">Annual Projection</div>
                           </div>
                         </div>
