@@ -809,5 +809,93 @@ router.delete('/credential-users/:id', async (req: AuthRequest, res) => {
   }
 });
 
+// Get all analyses (admin only - shows all analyses across all tenants)
+router.get('/analyses', async (req: AuthRequest, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT a.*, 
+              u.email as created_by_email,
+              u.username as created_by_username,
+              t.name as tenant_name,
+              t.domain as tenant_domain
+       FROM site_analyses a
+       JOIN site_users u ON a.created_by = u.id
+       JOIN site_tenants t ON a.tenant_id = t.id
+       ORDER BY a.updated_at DESC`
+    );
+
+    res.json({ analyses: result.rows });
+  } catch (error) {
+    console.error('Get all analyses error:', error);
+    res.status(500).json({ error: 'Failed to fetch analyses' });
+  }
+});
+
+// Update analysis tenant assignment (admin only)
+router.put('/analyses/:id/tenant', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { tenant_id } = req.body;
+    const adminUserId = req.user!.id;
+
+    if (!tenant_id) {
+      return res.status(400).json({ error: 'tenant_id is required' });
+    }
+
+    // Verify tenant exists
+    const tenantCheck = await pool.query(
+      'SELECT id FROM site_tenants WHERE id = $1',
+      [tenant_id]
+    );
+
+    if (tenantCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    // Verify analysis exists
+    const analysisCheck = await pool.query(
+      'SELECT id, tenant_id FROM site_analyses WHERE id = $1',
+      [id]
+    );
+
+    if (analysisCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+
+    const oldTenantId = analysisCheck.rows[0].tenant_id;
+
+    // Update analysis tenant
+    await pool.query(
+      'UPDATE site_analyses SET tenant_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [tenant_id, id]
+    );
+
+    // Log the change
+    await pool.query(
+      `INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, target_id, metadata)
+       VALUES ($1, $2, 'REASSIGN_ANALYSIS', 'analysis', $3, $4)`,
+      [
+        adminUserId,
+        tenant_id,
+        id,
+        JSON.stringify({ 
+          old_tenant_id: oldTenantId, 
+          new_tenant_id: tenant_id,
+          admin_action: true 
+        })
+      ]
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Analysis reassigned successfully',
+      analysis: { id, tenant_id }
+    });
+  } catch (error) {
+    console.error('Update analysis tenant error:', error);
+    res.status(500).json({ error: 'Failed to update analysis tenant' });
+  }
+});
+
 export default router;
 

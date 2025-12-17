@@ -15,6 +15,7 @@ import AnalysisForm from './pages/AnalysisForm';
 import AdminPricing from './pages/AdminPricing';
 import AdminPricingTable from './pages/AdminPricingTable';
 import AdminTenants from './pages/AdminTenants';
+import AdminAnalyses from './pages/AdminAnalyses';
 import { useAuth } from './contexts/AuthContext';
 
 // Protected Route Component
@@ -81,6 +82,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <AdminTenants />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analyses"
+        element={
+          <ProtectedRoute>
+            <AdminAnalyses />
           </ProtectedRoute>
         }
       />

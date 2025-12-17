@@ -72,6 +72,12 @@ export default function Header() {
                           Analyses
                         </Link>
                         <Link
+                          to="/admin/analyses"
+                          className="transition-colors text-gray-700 hover:text-[#17A2B8]"
+                        >
+                          Manage Analyses
+                        </Link>
+                        <Link
                           to="/admin/tenants"
                           className="transition-colors text-gray-700 hover:text-[#17A2B8]"
                         >
@@ -159,6 +165,13 @@ export default function Header() {
                           >
                             <FileText size={18} />
                             Analyses
+                          </Link>
+                          <Link
+                            to="/admin/analyses"
+                            onClick={() => setIsMenuOpen(false)}
+                            className="text-gray-700"
+                          >
+                            Manage Analyses
                           </Link>
                           <Link
                             to="/admin/tenants"
