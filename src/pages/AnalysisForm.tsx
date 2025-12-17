@@ -2903,14 +2903,14 @@ export default function AnalysisForm() {
               <div className="bg-gradient-to-r from-[#17A2B8] to-[#138C9E] text-white px-6 py-4 rounded-t-lg -mx-6 -mt-6 mb-6" style={{ backgroundColor: '#17A2B8', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <h3 style={{ color: 'white', fontWeight: 'bold' }}>MicroStrategy Architecture</h3>
               </div>
-              <div className="mt-4">
+              <div className="mt-4 w-full" style={{ aspectRatio: '16/9', minHeight: '600px' }}>
                 <iframe
                   src="https://arch.customer.cloud.microstrategy.com/"
-                  className="w-full border border-gray-300 rounded-lg"
+                  className="w-full h-full border border-gray-300 rounded-lg"
                   style={{ 
-                    height: '800px',
-                    minHeight: '600px',
-                    width: '100%'
+                    width: '100%',
+                    height: '100%',
+                    display: 'block'
                   }}
                   title="MicroStrategy Architecture Diagram"
                   allow="fullscreen"
