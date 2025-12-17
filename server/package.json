@@ -11,6 +11,7 @@
     "add-constraint": "tsx src/db/add_constraint.ts",
     "fix-ancillary-precision": "tsx src/db/fix_ancillary_license_precision.ts",
     "add-analysis-versions": "tsx src/db/add_analysis_versions.ts",
+    "add-credential-users": "tsx src/db/add_credential_users.ts",
     "seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
