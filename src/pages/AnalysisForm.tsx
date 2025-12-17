@@ -2877,9 +2877,9 @@ export default function AnalysisForm() {
               <div className="bg-gradient-to-r from-[#17A2B8] to-[#138C9E] text-white px-6 py-4 rounded-t-lg -mx-6 -mt-6 mb-6" style={{ backgroundColor: '#17A2B8', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                 <h3 style={{ color: 'white', fontWeight: 'bold' }}>MicroStrategy Architecture</h3>
               </div>
-              <div className="mt-4 w-full">
+              <div className="mt-4 w-full overflow-hidden">
                 {architectureDiagramImage ? (
-                  <div className="w-full">
+                  <div className="w-full" style={{ maxWidth: '100%', overflow: 'hidden' }}>
                     <img
                       src={architectureDiagramImage}
                       alt="MicroStrategy Architecture Diagram"
@@ -2887,7 +2887,9 @@ export default function AnalysisForm() {
                       style={{ 
                         width: '100%',
                         height: 'auto',
-                        display: 'block'
+                        maxWidth: '100%',
+                        display: 'block',
+                        objectFit: 'contain'
                       }}
                     />
                     <p className="text-sm text-gray-500 mt-2 text-center">
@@ -2903,8 +2905,8 @@ export default function AnalysisForm() {
                     </p>
                   </div>
                 ) : (
-                  <div className="w-full border border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center" style={{ minHeight: '600px', aspectRatio: '16/9' }}>
-                    <div className="text-center text-gray-500">
+                  <div className="w-full border border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center" style={{ minHeight: '600px', aspectRatio: '16/9', maxWidth: '100%', overflow: 'hidden' }}>
+                    <div className="text-center text-gray-500 w-full">
                       <p className="mb-2">Loading MicroStrategy Architecture Diagram...</p>
                       <iframe
                         src="https://arch.customer.cloud.microstrategy.com/"
@@ -2912,6 +2914,7 @@ export default function AnalysisForm() {
                         style={{ 
                           width: '100%',
                           height: '100%',
+                          maxWidth: '100%',
                           display: 'block',
                           minHeight: '600px'
                         }}
