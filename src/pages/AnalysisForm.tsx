@@ -1628,13 +1628,9 @@ export default function AnalysisForm() {
           }
         } catch (e) {
           console.warn('Could not capture architecture diagram:', e);
-          // Add a reference/link instead
-          pdf.setFontSize(12);
-          pdf.setFont('helvetica', 'normal');
-          pdf.setTextColor(0, 0, 0);
-          pdf.text('MicroStrategy Architecture Diagram', margin, archYPos);
-          archYPos += 10;
+          // Add a reference/link instead (title already shown above)
           pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
           pdf.setTextColor(100, 100, 100);
           pdf.text(`Reference: ${archUrl}`, margin, archYPos, { 
             maxWidth: pageWidth - (margin * 2),
