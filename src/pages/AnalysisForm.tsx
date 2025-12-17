@@ -2902,6 +2902,37 @@ export default function AnalysisForm() {
               </div>
             </div>
 
+            {/* MicroStrategy Architecture Diagram */}
+            <div className="bg-white rounded-lg shadow-sm p-6 border-2 border-[#17A2B8]" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #17A2B8' }}>
+              <div className="bg-gradient-to-r from-[#17A2B8] to-[#138C9E] text-white px-6 py-4 rounded-t-lg -mx-6 -mt-6 mb-6" style={{ backgroundColor: '#17A2B8', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
+                <h3 style={{ color: 'white', fontWeight: 'bold' }}>MicroStrategy Architecture</h3>
+              </div>
+              <div className="mt-4">
+                <iframe
+                  src="https://arch.customer.cloud.microstrategy.com/"
+                  className="w-full border border-gray-300 rounded-lg"
+                  style={{ 
+                    height: '800px',
+                    minHeight: '600px',
+                    width: '100%'
+                  }}
+                  title="MicroStrategy Architecture Diagram"
+                  allow="fullscreen"
+                />
+                <p className="text-sm text-gray-500 mt-2 text-center">
+                  Interactive MicroStrategy Architecture Diagram - 
+                  <a 
+                    href="https://arch.customer.cloud.microstrategy.com/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[#17A2B8] hover:underline ml-1"
+                  >
+                    Open in new tab
+                  </a>
+                </p>
+              </div>
+            </div>
+
             {/* 1. Insights */}
             <div className="bg-white rounded-lg shadow-sm p-6 border-2 border-purple-500" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #a855f7' }}>
               <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-4 rounded-t-lg -mx-6 -mt-6 mb-6" style={{ backgroundColor: '#a855f7', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
