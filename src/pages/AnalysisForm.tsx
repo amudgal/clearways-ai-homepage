@@ -560,7 +560,8 @@ export default function AnalysisForm() {
     const mstrLicensing = Number(formData.mstrLicensingCost || 0) * Number(formData.numberOfInstances || 0);
     const ancillaryLicensing = Number(formData.ancillaryLicensingPercentage || 0); // Other Licensing Costs - dollar amount
     const cloudSupportCosts = Number(formData.cloudSupportCosts || 0); // Cloud Support costs - In-house staff costs
-    const mstrSupport = Number(formData.mstrSupportCosts || 0); // Professional Services (Strategy + Vendor)
+    // MSTR Support Costs = Professional Services (Strategy + Vendor) from input field
+    const mstrSupport = Number(formData.mstrSupportCosts || 0); // Professional Services (Strategy + Vendor) - displayed as "MSTR Support Costs" under Support Costs
     const supportServicesCost = calculateSupportServicesCost(); // Support & Services cost
     const supportServicesTotal = supportServicesCost + mstrSupport; // Support & Services Total costs
     // Cloud Personnel costs = Cloud Support Costs + Support & Services Total costs
