@@ -1434,41 +1434,7 @@ export default function AnalysisForm() {
       pdf.text(preparedBy, pageWidth / 2, titleY + 40, { align: 'center' });
       pdf.text(`Date: ${currentDate}`, pageWidth / 2, titleY + 55, { align: 'center' });
 
-      // Second Page - Cost Analysis Report Header Card
-      pdf.addPage();
-      
-      // Draw header card background (gradient-like effect using solid color)
-      const cardMargin = 15;
-      const cardWidth = pageWidth - (cardMargin * 2);
-      const cardHeight = 60;
-      const cardY = margin + 20;
-      
-      // Draw card background with gradient color (#17A2B8 to #138C9E)
-      pdf.setFillColor(23, 162, 184); // #17A2B8
-      pdf.setDrawColor(23, 162, 184);
-      pdf.setLineWidth(0.5);
-      // Use roundedRect if available, otherwise use regular rect
-      if (typeof pdf.roundedRect === 'function') {
-        pdf.roundedRect(cardMargin, cardY, cardWidth, cardHeight, 3, 3, 'FD');
-      } else {
-        pdf.rect(cardMargin, cardY, cardWidth, cardHeight, 'FD');
-      }
-      
-      // Add Cost Analysis Report title
-      pdf.setFontSize(50);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(255, 255, 255); // White text
-      const titleX = cardMargin + 20;
-      const titleYPos = cardY + 20;
-      pdf.text('Cost Analysis Report', titleX, titleYPos);
-      
-      // Add subtitle (light color for contrast on teal background)
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(200, 230, 240); // Light teal/white for contrast
-      pdf.text('Comprehensive cost analysis and recommendations', titleX, titleYPos + 12);
-
-      // Third Page - Summary
+      // Second Page - Summary
       pdf.addPage();
       
       // Add header with logo
@@ -1660,6 +1626,40 @@ export default function AnalysisForm() {
         pageHeight - margin + 10,
         { align: 'center' }
       );
+
+      // Add Cost Analysis Report Header Card after Architecture Cost Calculator
+      pdf.addPage();
+      
+      // Draw header card background (gradient-like effect using solid color)
+      const cardMargin = 15;
+      const cardWidth = pageWidth - (cardMargin * 2);
+      const cardHeight = 50;
+      const cardY = margin + 20;
+      
+      // Draw card background with gradient color (#17A2B8 to #138C9E)
+      pdf.setFillColor(23, 162, 184); // #17A2B8
+      pdf.setDrawColor(23, 162, 184);
+      pdf.setLineWidth(0.5);
+      // Use roundedRect if available, otherwise use regular rect
+      if (typeof pdf.roundedRect === 'function') {
+        pdf.roundedRect(cardMargin, cardY, cardWidth, cardHeight, 3, 3, 'FD');
+      } else {
+        pdf.rect(cardMargin, cardY, cardWidth, cardHeight, 'FD');
+      }
+      
+      // Add Cost Analysis Report title (reduced by 60%: 50px * 0.4 = 20px)
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(255, 255, 255); // White text
+      const titleX = cardMargin + 20;
+      const titleYPos = cardY + 18;
+      pdf.text('Cost Analysis Report', titleX, titleYPos);
+      
+      // Add subtitle (light color for contrast on teal background)
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(200, 230, 240); // Light teal/white for contrast
+      pdf.text('Comprehensive cost analysis and recommendations', titleX, titleYPos + 10);
 
       // Capture the results section (from Insights onwards)
       const resultsElement = document.getElementById('results');
