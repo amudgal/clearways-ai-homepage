@@ -1661,6 +1661,61 @@ export default function AnalysisForm() {
       pdf.setTextColor(200, 230, 240); // Light teal/white for contrast
       pdf.text('Comprehensive cost analysis and recommendations', titleX, titleYPos + 10);
 
+      // Add MicroStrategy Architecture Diagram as image if available
+      if (architectureDiagramImage) {
+        pdf.addPage();
+        
+        // Add header with logo
+        if (logoImg.complete && logoImg.naturalWidth > 0) {
+          try {
+            const logoWidth = 15;
+            const logoHeight = (logoImg.naturalHeight / logoImg.naturalWidth) * logoWidth;
+            pdf.addImage(logoImg, 'PNG', margin, margin + 2, logoWidth, logoHeight);
+          } catch (e) {
+            // Ignore logo errors
+          }
+        }
+        
+        // Add section title
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(23, 162, 184); // #17A2B8
+        let archYPos = margin + 25;
+        pdf.text('MicroStrategy Architecture', margin, archYPos);
+        archYPos += 10;
+        
+        // Load and add the architecture diagram image
+        const archImg = new Image();
+        archImg.crossOrigin = 'anonymous';
+        archImg.src = architectureDiagramImage;
+        
+        await new Promise((resolve) => {
+          if (archImg.complete) {
+            resolve(null);
+          } else {
+            archImg.onload = () => resolve(null);
+            archImg.onerror = () => resolve(null); // Continue even if image fails
+          }
+        });
+        
+        if (archImg.complete && archImg.naturalWidth > 0) {
+          try {
+            const archImgWidth = pageWidth - (margin * 2);
+            const archImgHeight = (archImg.naturalHeight / archImg.naturalWidth) * archImgWidth;
+            
+            // Check if image fits on current page, otherwise add new page
+            if (archYPos + archImgHeight > pageHeight - margin - 15) {
+              pdf.addPage();
+              archYPos = margin + 20;
+            }
+            
+            pdf.addImage(archImg, 'PNG', margin, archYPos, archImgWidth, archImgHeight);
+          } catch (e) {
+            console.warn('Could not add architecture diagram to PDF:', e);
+          }
+        }
+      }
+
       // Capture the results section (from Insights onwards)
       const resultsElement = document.getElementById('results');
       if (!resultsElement) {
