@@ -2840,7 +2840,7 @@ export default function AnalysisForm() {
             <div className="bg-gradient-to-r from-[#17A2B8] to-[#138C9E] text-white rounded-lg shadow-lg p-8 mb-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-4xl font-bold mb-2">Cost Analysis Report</h1>
+                  <h1 className="text-7xl font-black mb-2">Cost Analysis Report</h1>
                   <p className="text-[#17A2B8]/90 text-lg">Comprehensive cost analysis and recommendations</p>
                 </div>
                 <div className="flex items-center gap-3">
