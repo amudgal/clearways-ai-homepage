@@ -1663,6 +1663,7 @@ export default function AnalysisForm() {
 
       // Add MicroStrategy Architecture Diagram as image if available
       if (architectureDiagramImage) {
+        console.log('Adding architecture diagram to PDF...');
         pdf.addPage();
         
         // Add header with logo
@@ -1684,24 +1685,35 @@ export default function AnalysisForm() {
         pdf.text('MicroStrategy Architecture', margin, archYPos);
         archYPos += 10;
         
-        // Load and add the architecture diagram image
-        const archImg = new Image();
-        archImg.crossOrigin = 'anonymous';
-        archImg.src = architectureDiagramImage;
-        
-        await new Promise((resolve) => {
-          if (archImg.complete) {
-            resolve(null);
-          } else {
-            archImg.onload = () => resolve(null);
-            archImg.onerror = () => resolve(null); // Continue even if image fails
-          }
-        });
-        
-        if (archImg.complete && archImg.naturalWidth > 0) {
-          try {
+        try {
+          // Load image to get dimensions (data URL)
+          const archImg = new Image();
+          
+          await new Promise((resolve, reject) => {
+            archImg.onload = () => {
+              console.log('Architecture image loaded, dimensions:', archImg.naturalWidth, 'x', archImg.naturalHeight);
+              resolve(null);
+            };
+            archImg.onerror = (err) => {
+              console.error('Failed to load architecture image:', err);
+              reject(err);
+            };
+            archImg.src = architectureDiagramImage;
+            
+            // Timeout after 5 seconds
+            setTimeout(() => {
+              if (!archImg.complete) {
+                console.warn('Architecture image load timeout');
+                reject(new Error('Image load timeout'));
+              }
+            }, 5000);
+          });
+          
+          if (archImg.complete && archImg.naturalWidth > 0 && archImg.naturalHeight > 0) {
             const archImgWidth = pageWidth - (margin * 2);
             const archImgHeight = (archImg.naturalHeight / archImg.naturalWidth) * archImgWidth;
+            
+            console.log('Adding architecture image to PDF, size:', archImgWidth, 'x', archImgHeight, 'at Y:', archYPos);
             
             // Check if image fits on current page, otherwise add new page
             if (archYPos + archImgHeight > pageHeight - margin - 15) {
@@ -1709,11 +1721,37 @@ export default function AnalysisForm() {
               archYPos = margin + 20;
             }
             
-            pdf.addImage(archImg, 'PNG', margin, archYPos, archImgWidth, archImgHeight);
-          } catch (e) {
-            console.warn('Could not add architecture diagram to PDF:', e);
+            // Add image directly from data URL - jsPDF supports data URLs
+            pdf.addImage(architectureDiagramImage, 'PNG', margin, archYPos, archImgWidth, archImgHeight);
+            console.log('Architecture diagram added to PDF successfully');
+          } else {
+            console.warn('Architecture image not ready or has invalid dimensions');
+            // Try adding directly anyway
+            try {
+              const archImgWidth = pageWidth - (margin * 2);
+              pdf.addImage(architectureDiagramImage, 'PNG', margin, archYPos, archImgWidth, archImgWidth * 0.75);
+              console.log('Architecture diagram added with default aspect ratio');
+            } catch (e2) {
+              console.error('Failed to add architecture image even with default size:', e2);
+            }
+          }
+        } catch (e) {
+          console.error('Error adding architecture diagram to PDF:', e);
+          // Try to add the image directly anyway
+          try {
+            const archImgWidth = pageWidth - (margin * 2);
+            pdf.addImage(architectureDiagramImage, 'PNG', margin, archYPos, archImgWidth, archImgWidth * 0.75);
+            console.log('Architecture diagram added directly despite error');
+          } catch (e2) {
+            console.error('Completely failed to add architecture diagram:', e2);
+            // Add a placeholder text
+            pdf.setFontSize(10);
+            pdf.setTextColor(100, 100, 100);
+            pdf.text('Architecture diagram could not be loaded', margin, archYPos);
           }
         }
+      } else {
+        console.log('No architecture diagram image available');
       }
 
       // Capture the results section (from Insights onwards)
