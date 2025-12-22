@@ -214,7 +214,7 @@ export default function AnalysisForm() {
             setSelectedVersion(null);
           } else if (versions.length > 0 && !selectedVersion) {
             // If versions exist but none selected, select the latest
-            const latestVersion = Math.max(...versions.map(v => v.version_number));
+            const latestVersion = versions.length > 0 ? Math.max(...versions.map(v => v.version_number)) : 1;
             setSelectedVersion(latestVersion);
           }
         }
@@ -587,7 +587,7 @@ export default function AnalysisForm() {
   };
 
   const getTotalCostForSection = (section: typeof ARCHITECTURE_SECTIONS[0]): number => {
-    return section.components.reduce((sum, component) => {
+    return (section.components || []).reduce((sum, component) => {
       return sum + calculateTotalCost(component.id);
     }, 0);
   };
@@ -1372,9 +1372,9 @@ export default function AnalysisForm() {
         ...prev,
         costRows: {
           ...(prev?.costRows || {}),
-          [tableId]: existing.map(row => 
+          [tableId]: Array.isArray(existing) ? existing.map(row => 
             row.id === rowId ? { ...row, [field]: value } : row
-          ),
+          ) : [],
         },
       };
     });
@@ -1769,7 +1769,7 @@ export default function AnalysisForm() {
             
             // Show top 2 components if there's space
             let componentCount = 0;
-            section.components.forEach((component) => {
+            (section.components || []).forEach((component) => {
               if (componentCount >= 2 || yPos > pageHeight - margin - footerHeight - 20) return;
               const selection = componentSelections[component.id];
               if (selection && selection.selectedTier && selection.selectedTier !== '') {
@@ -3001,9 +3001,9 @@ export default function AnalysisForm() {
                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Service Component</th>
                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tier</th>
                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                                  {section.components.some(c => c.id === 'storage')
+                                  {(section.components || []).some(c => c.id === 'storage')
                                     ? 'Total Data (GB) / Instances'
-                                    : section.components.some(c => c.id === 'data-egress')
+                                    : (section.components || []).some(c => c.id === 'data-egress')
                                     ? 'Total Data (GB)'
                                     : 'Instances'}
                                 </th>
@@ -3019,15 +3019,16 @@ export default function AnalysisForm() {
                                 // 4. Cloud Storage - always default to blank
                                 // 5. Database - always default to blank
                                 // 6. Data Egress - always default to blank
+                                const tierOptions = component.tierOptions || [];
                                 const shouldDefaultToBlank = 
-                                  component.tierOptions.length === 1 ||
+                                  tierOptions.length === 1 ||
                                   component.id === 'compute-gke' ||
                                   component.id === 'memory-ram' ||
                                   component.id === 'storage' ||
                                   component.id === 'database' ||
                                   component.id === 'data-egress';
                                 
-                                const defaultTier = shouldDefaultToBlank ? '' : (component.tierOptions[0] || '');
+                                const defaultTier = shouldDefaultToBlank ? '' : (tierOptions[0] || '');
                                 const requiresDataGB = component.id === 'storage' || component.id === 'data-egress';
                                 const selection = componentSelections[component.id] || {
                                   componentId: component.id,
