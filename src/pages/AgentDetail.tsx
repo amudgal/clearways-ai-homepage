@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Play } from 'lucide-react';
 import { agents } from '../data/agents';
 import InvocationModal from '../components/InvocationModal';
+import AgentLoadingScreen from '../components/AgentLoadingScreen';
 
 export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -11,6 +12,8 @@ export default function AgentDetail() {
   const [excludedSources, setExcludedSources] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [estimatedRecords, setEstimatedRecords] = useState(100);
+  const [isRunning, setIsRunning] = useState(false);
+  const [runStatus, setRunStatus] = useState<string>('');
 
   const agent = agents.find((a) => a.id === id);
 
@@ -38,16 +41,45 @@ export default function AgentDetail() {
     );
   };
 
-  const handleRun = (input: { type: string; data: string | File }) => {
+  const handleRun = async (input: { type: string; data: string | File }) => {
     setIsModalOpen(false);
-    navigate(`/agents/${agent.id}/results`, { 
-      state: { input, agent } 
-    });
+    setIsRunning(true);
+    setRunStatus('Initializing agent...');
+    
+    // Simulate agent processing with status updates
+    setTimeout(() => {
+      setRunStatus('Processing input data...');
+    }, 1000);
+    
+    setTimeout(() => {
+      setRunStatus('Querying sources...');
+    }, 2000);
+    
+    setTimeout(() => {
+      setRunStatus('Validating results...');
+    }, 3000);
+    
+    setTimeout(() => {
+      setRunStatus('Generating report...');
+    }, 4000);
+    
+    // After processing, navigate to results
+    setTimeout(() => {
+      setIsRunning(false);
+      navigate(`/agents/${agent.id}/results`, { 
+        state: { input, agent } 
+      });
+    }, 5000);
   };
 
   const estimatedCost = agent.usageCost.type === 'per-record'
     ? (agent.usageCost.amount * estimatedRecords).toFixed(2)
     : agent.usageCost.amount.toFixed(2);
+
+  // Show loading screen while agent is running
+  if (isRunning) {
+    return <AgentLoadingScreen agentName={agent.name} status={runStatus} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

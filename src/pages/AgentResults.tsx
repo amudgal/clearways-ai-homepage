@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Download, Star, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
+import AgentLoadingScreen from '../components/AgentLoadingScreen';
 
 interface Result {
   id: string;
@@ -15,6 +16,8 @@ export default function AgentResults() {
   const { input, agent } = location.state || {};
   const [rating, setRating] = useState(0);
   const [showRatingThank, setShowRatingThank] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingStatus, setLoadingStatus] = useState('Loading results...');
 
   // All sources used (including newly discovered ones)
   const allSourcesUsed = [
@@ -26,6 +29,21 @@ export default function AgentResults() {
   const [excludedSources, setExcludedSources] = useState<string[]>([]);
   const [showSourceManager, setShowSourceManager] = useState(false);
   const [isRerunning, setIsRerunning] = useState(false);
+
+  // Simulate loading when component first mounts
+  useEffect(() => {
+    if (!agent) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Simulate processing time
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [agent]);
 
   // Mock results - in production, these would come from API
   const mockResults: Result[] = Array.from({ length: 5 }, (_, i) => ({
@@ -53,6 +71,11 @@ export default function AgentResults() {
     confidence: 85 + Math.floor(Math.random() * 10),
     sources: agent?.sources.slice(0, 2 + (i % 2)) || ['Source 1', 'Source 2'],
   }));
+
+  // Show loading screen while processing
+  if (isLoading && agent) {
+    return <AgentLoadingScreen agentName={agent.name} status={loadingStatus} />;
+  }
 
   if (!agent) {
     return (

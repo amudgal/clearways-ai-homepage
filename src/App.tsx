@@ -19,6 +19,7 @@ import AdminTenants from './pages/AdminTenants';
 import AdminAnalyses from './pages/AdminAnalyses';
 import AgentMarketplace from './pages/AgentMarketplace';
 import AgentDetail from './pages/AgentDetail';
+import AgentResults from './pages/AgentResults';
 import { useAuth } from './contexts/AuthContext';
 
 // Protected Route Component
@@ -46,6 +47,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/agents" element={<AgentMarketplace />} />
       <Route path="/agents/:id" element={<AgentDetail />} />
+      <Route path="/agents/:id/results" element={<AgentResults />} />
       <Route
         path="/dashboard"
         element={
