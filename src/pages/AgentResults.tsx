@@ -58,13 +58,24 @@ export default function AgentResults() {
             const jobData = await response.json();
             setJob(jobData);
 
-            // Extract email candidates from entities
+            // Extract results from entities - show all contractors even if no email found
             const emailResults: Result[] = [];
             const sourcesSet = new Set<string>();
+            const processedEntityIds = new Set<string>();
 
             if (jobData.entities && Array.isArray(jobData.entities)) {
               jobData.entities.forEach((entity: any) => {
-                if (entity.emailCandidates && Array.isArray(entity.emailCandidates)) {
+                const entityId = entity.id || entity.rocNumber;
+                
+                // Collect sources from entity
+                if (entity.evidence && Array.isArray(entity.evidence)) {
+                  entity.evidence.forEach((ev: any) => {
+                    if (ev.source) sourcesSet.add(ev.source);
+                  });
+                }
+
+                // If entity has email candidates, create a result for each email
+                if (entity.emailCandidates && Array.isArray(entity.emailCandidates) && entity.emailCandidates.length > 0) {
                   entity.emailCandidates.forEach((candidate: any) => {
                     // Collect sources
                     if (candidate.source) {
@@ -76,7 +87,7 @@ export default function AgentResults() {
                       });
                     }
 
-                    // Create result
+                    // Create result with email
                     emailResults.push({
                       id: candidate.id || `email-${emailResults.length}`,
                       data: {
@@ -86,6 +97,9 @@ export default function AgentResults() {
                         'Phone': entity.phone || 'N/A',
                         'Business Name': entity.businessName || entity.contractorName || 'N/A',
                         'Address': entity.address || 'N/A',
+                        'Website': entity.officialWebsite || 'N/A',
+                        'Classification': entity.classification || 'N/A',
+                        'License Status': entity.licenseStatus || 'N/A',
                       },
                       confidence: candidate.confidence || 0,
                       sources: [
@@ -93,6 +107,60 @@ export default function AgentResults() {
                         ...(candidate.evidence?.map((e: any) => e.source) || []),
                       ].filter(Boolean),
                     });
+                  });
+                  processedEntityIds.add(entityId);
+                } else {
+                  // No email found, but still show all other information
+                  if (!processedEntityIds.has(entityId)) {
+                    emailResults.push({
+                      id: `entity-${entityId}-no-email`,
+                      data: {
+                        'Contractor Name': entity.contractorName || entity.businessName || 'Unknown',
+                        'Email': 'Not Found',
+                        'ROC License': entity.rocNumber || 'N/A',
+                        'Phone': entity.phone || 'N/A',
+                        'Business Name': entity.businessName || entity.contractorName || 'N/A',
+                        'Address': entity.address || 'N/A',
+                        'Website': entity.officialWebsite || 'N/A',
+                        'Classification': entity.classification || 'N/A',
+                        'License Status': entity.licenseStatus || 'N/A',
+                      },
+                      confidence: 0,
+                      sources: entity.evidence?.map((e: any) => e.source).filter(Boolean) || [],
+                    });
+                    processedEntityIds.add(entityId);
+                  }
+                }
+              });
+            }
+
+            // Also check contractorRows to ensure all input contractors are represented
+            if (jobData.contractorRows && Array.isArray(jobData.contractorRows)) {
+              jobData.contractorRows.forEach((row: any) => {
+                const rowId = row.rocNumber || row.id;
+                // Check if we already have a result for this contractor
+                const hasResult = emailResults.some(r => 
+                  r.data['ROC License'] === row.rocNumber || 
+                  r.data['Contractor Name'] === row.contractorName
+                );
+
+                if (!hasResult) {
+                  // No result found for this contractor - add it with "Not Found" email
+                  emailResults.push({
+                    id: `row-${row.rowIndex || row.id}-no-email`,
+                    data: {
+                      'Contractor Name': row.contractorName || 'Unknown',
+                      'Email': 'Not Found',
+                      'ROC License': row.rocNumber || 'N/A',
+                      'Phone': row.phone || 'N/A',
+                      'Business Name': row.contractorName || 'N/A',
+                      'Address': row.city ? `${row.city}, AZ` : 'N/A',
+                      'Website': row.website || 'N/A',
+                      'Classification': row.classification || 'N/A',
+                      'License Status': row.licenseStatus || 'N/A',
+                    },
+                    confidence: 0,
+                    sources: [],
                   });
                 }
               });
