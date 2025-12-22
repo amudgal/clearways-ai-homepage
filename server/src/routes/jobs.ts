@@ -1,5 +1,6 @@
 // Jobs API Routes - Agent system job management
 import express from 'express';
+import { randomUUID } from 'crypto';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { prisma } from '../config/prisma';
 
@@ -73,8 +74,8 @@ router.post('/upload', authenticate, async (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'contractorRows is required and must be a non-empty array' });
     }
 
-    // Generate job ID
-    const jobId = `job-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Generate job ID as UUID (required by Prisma schema)
+    const jobId = randomUUID();
 
     // Transform contractor rows to match ContractorInput interface
     const transformedRows = contractorRows.map((row: any, index: number) => ({

@@ -47,16 +47,21 @@ if (!databaseUrl) {
 
 // Create PostgreSQL connection pool with SSL configuration
 // Match the SSL settings from database.ts
-const poolConfig: any = {
-  connectionString: databaseUrl,
-};
+// Parse the connection string to extract components for proper SSL configuration
+const url = new URL(databaseUrl.replace('postgresql://', 'https://'));
 
-// Configure SSL if DB_SSL is set to 'true'
-if (process.env.DB_SSL === 'true') {
-  poolConfig.ssl = {
-    rejectUnauthorized: false, // Accept self-signed certificates (needed for AWS RDS)
-  };
-}
+const poolConfig: any = {
+  host: url.hostname,
+  port: parseInt(url.port || '5432'),
+  database: url.pathname.replace('/', ''),
+  user: url.username,
+  password: decodeURIComponent(url.password),
+  // Configure SSL if DB_SSL is set to 'true' (matches database.ts)
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+};
 
 const pool = new Pool(poolConfig);
 
