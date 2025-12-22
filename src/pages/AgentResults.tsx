@@ -3,11 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Download, Star, ArrowRight, RefreshCw, AlertCircle, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import AgentLoadingScreen from '../components/AgentLoadingScreen';
 import { toast } from 'sonner';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
-// API configuration
-const getApiBaseUrl = () => {
-  return import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-};
+const API_BASE_URL = getApiBaseUrl();
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('auth_token');
@@ -52,7 +50,7 @@ export default function AgentResults() {
       // If we have a jobId, fetch the job results
       if (jobId) {
         try {
-          const response = await fetch(`${getApiBaseUrl()}/jobs/${jobId}`, {
+          const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`, {
             headers: getAuthHeaders(),
           });
 
