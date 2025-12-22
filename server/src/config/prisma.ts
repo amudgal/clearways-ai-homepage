@@ -7,8 +7,12 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
 // Get DATABASE_URL from environment
-const databaseUrl = process.env.DATABASE_URL || 
-  `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || ''}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'clearways_ai'}?sslmode=${process.env.DB_SSL === 'true' ? 'require' : 'prefer'}`;
+// This should point to your existing PostgreSQL database
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL environment variable is required. Please set it in your .env file to point to your existing PostgreSQL database.');
+}
 
 // Create PostgreSQL connection pool
 const pool = new Pool({ connectionString: databaseUrl });
