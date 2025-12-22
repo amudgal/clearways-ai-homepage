@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Download, Star, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
+import { Download, Star, ArrowRight, RefreshCw, AlertCircle, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import AgentLoadingScreen from '../components/AgentLoadingScreen';
 
 interface Result {
@@ -13,11 +13,12 @@ interface Result {
 export default function AgentResults() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { input, agent } = location.state || {};
+  const { input, agent, reasoning } = location.state || {};
   const [rating, setRating] = useState(0);
   const [showRatingThank, setShowRatingThank] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState('Loading results...');
+  const [showReasoning, setShowReasoning] = useState(true);
 
   // All sources used (including newly discovered ones)
   const allSourcesUsed = [
@@ -160,6 +161,108 @@ export default function AgentResults() {
             {mockResults.length} results processed
           </p>
         </div>
+
+        {/* Agent Reasoning Section */}
+        {reasoning && (
+          <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+            <button
+              onClick={() => setShowReasoning(!showReasoning)}
+              className="w-full flex items-center justify-between mb-4"
+            >
+              <div className="flex items-center gap-3">
+                <Brain className="w-5 h-5 text-[#17A2B8]" />
+                <h2 className="text-gray-900 font-semibold">Agent Reasoning & Strategy</h2>
+              </div>
+              {showReasoning ? (
+                <ChevronUp className="text-gray-600" />
+              ) : (
+                <ChevronDown className="text-gray-600" />
+              )}
+            </button>
+
+            {showReasoning && (
+              <div className="space-y-4">
+                {reasoning.approach && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Discovery Approach: </span>
+                    <span className="text-sm text-gray-900 capitalize font-semibold">{reasoning.approach.replace('-', ' ')}</span>
+                  </div>
+                )}
+
+                {reasoning.reasoning && (
+                  <div className="p-4 bg-[#17A2B8] bg-opacity-5 border border-[#17A2B8] border-opacity-20 rounded-lg">
+                    <p className="text-sm text-gray-700 font-medium mb-2">Reasoning:</p>
+                    <p className="text-sm text-gray-700">{reasoning.reasoning}</p>
+                  </div>
+                )}
+
+                {reasoning.searchQueries && reasoning.searchQueries.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">Search Queries Generated:</p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      {reasoning.searchQueries.map((query: string, idx: number) => (
+                        <li key={idx} className="text-sm text-gray-600">{query}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {reasoning.prioritySources && reasoning.prioritySources.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">Priority Sources:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {reasoning.prioritySources.map((source: string, idx: number) => (
+                        <span key={idx} className="px-3 py-1 bg-[#17A2B8] bg-opacity-10 text-[#17A2B8] text-sm rounded">
+                          {source}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {reasoning.steps && reasoning.steps.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-3">Execution Steps:</p>
+                    <div className="space-y-2">
+                      {reasoning.steps.map((step: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className={`flex items-start gap-3 p-3 rounded border ${
+                            step.status === 'completed'
+                              ? 'bg-green-50 border-green-200'
+                              : step.status === 'active'
+                              ? 'bg-[#17A2B8] bg-opacity-5 border-[#17A2B8]'
+                              : 'bg-gray-50 border-gray-200'
+                          }`}
+                        >
+                          <span className={`text-sm font-medium ${
+                            step.status === 'completed' ? 'text-green-700' :
+                            step.status === 'active' ? 'text-[#17A2B8]' :
+                            'text-gray-500'
+                          }`}>
+                            {idx + 1}.
+                          </span>
+                          <div className="flex-1">
+                            <p className={`text-sm font-medium ${
+                              step.status === 'completed' ? 'text-green-900' :
+                              step.status === 'active' ? 'text-[#17A2B8]' :
+                              'text-gray-700'
+                            }`}>
+                              {step.step}
+                            </p>
+                            {step.reasoning && (
+                              <p className="text-xs text-gray-600 mt-1">{step.reasoning}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Sources Manager */}
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">

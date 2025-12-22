@@ -14,6 +14,7 @@ export default function AgentDetail() {
   const [estimatedRecords, setEstimatedRecords] = useState(100);
   const [isRunning, setIsRunning] = useState(false);
   const [runStatus, setRunStatus] = useState<string>('');
+  const [reasoning, setReasoning] = useState<any>(null);
 
   const agent = agents.find((a) => a.id === id);
 
@@ -46,30 +47,91 @@ export default function AgentDetail() {
     setIsRunning(true);
     setRunStatus('Initializing agent...');
     
-    // Simulate agent processing with status updates
+    // Simulate agent processing with status updates and reasoning
     setTimeout(() => {
-      setRunStatus('Processing input data...');
+      setRunStatus('Querying ROC database...');
+      setReasoning({
+        approach: 'roc-first',
+        reasoning: 'Official website found in ROC database. Prioritizing authoritative source first, then expanding search.',
+        searchQueries: [
+          `"${agent.name}" contact email Arizona`,
+          `"${agent.name}" website contact`,
+          `Arizona ROC contractor email`
+        ],
+        prioritySources: ['roc', 'official-website', 'linkedin', 'business-directories'],
+        steps: [
+          { step: 'ROC Lookup', status: 'active', reasoning: 'Querying Arizona ROC database for contractor information' },
+          { step: 'Strategy Planning', status: 'pending', reasoning: 'Analyzing ROC data to plan email discovery approach' },
+          { step: 'Query Generation', status: 'pending', reasoning: 'Generating intelligent search queries based on contractor type' },
+          { step: 'Source Discovery', status: 'pending', reasoning: 'Searching web sources for contact information' },
+          { step: 'Email Extraction', status: 'pending', reasoning: 'Extracting email addresses from discovered sources' },
+          { step: 'Validation', status: 'pending', reasoning: 'Validating email addresses and computing confidence scores' },
+        ]
+      });
     }, 1000);
     
     setTimeout(() => {
-      setRunStatus('Querying sources...');
+      setRunStatus('Planning email discovery strategy...');
+      setReasoning(prev => ({
+        ...prev,
+        steps: prev.steps.map((s: any, i: number) => 
+          i === 0 ? { ...s, status: 'completed' } : 
+          i === 1 ? { ...s, status: 'active' } : s
+        )
+      }));
     }, 2000);
     
     setTimeout(() => {
-      setRunStatus('Validating results...');
+      setRunStatus('Generating search queries...');
+      setReasoning(prev => ({
+        ...prev,
+        steps: prev.steps.map((s: any, i: number) => 
+          i === 1 ? { ...s, status: 'completed' } : 
+          i === 2 ? { ...s, status: 'active' } : s
+        )
+      }));
     }, 3000);
     
     setTimeout(() => {
-      setRunStatus('Generating report...');
+      setRunStatus('Discovering sources...');
+      setReasoning(prev => ({
+        ...prev,
+        steps: prev.steps.map((s: any, i: number) => 
+          i === 2 ? { ...s, status: 'completed' } : 
+          i === 3 ? { ...s, status: 'active' } : s
+        )
+      }));
     }, 4000);
+    
+    setTimeout(() => {
+      setRunStatus('Validating results...');
+      setReasoning(prev => ({
+        ...prev,
+        steps: prev.steps.map((s: any, i: number) => 
+          i === 3 ? { ...s, status: 'completed' } : 
+          i === 4 ? { ...s, status: 'active' } : s
+        )
+      }));
+    }, 5000);
+    
+    setTimeout(() => {
+      setRunStatus('Finalizing...');
+      setReasoning(prev => ({
+        ...prev,
+        steps: prev.steps.map((s: any, i: number) => 
+          i === 4 ? { ...s, status: 'completed' } : 
+          i === 5 ? { ...s, status: 'active' } : s
+        )
+      }));
+    }, 6000);
     
     // After processing, navigate to results
     setTimeout(() => {
       setIsRunning(false);
       navigate(`/agents/${agent.id}/results`, { 
-        state: { input, agent } 
+        state: { input, agent, reasoning } 
       });
-    }, 5000);
+    }, 7000);
   };
 
   const estimatedCost = agent.usageCost.type === 'per-record'
@@ -78,7 +140,7 @@ export default function AgentDetail() {
 
   // Show loading screen while agent is running
   if (isRunning) {
-    return <AgentLoadingScreen agentName={agent.name} status={runStatus} />;
+    return <AgentLoadingScreen agentName={agent.name} status={runStatus} reasoning={reasoning} />;
   }
 
   return (
