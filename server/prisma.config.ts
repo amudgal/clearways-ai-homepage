@@ -2,8 +2,12 @@
 // Connection URLs are now configured here instead of in schema.prisma
 // Uses the existing PostgreSQL database configured via DB_* variables or DATABASE_URL
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { resolve } from 'path';
 import { defineConfig } from 'prisma/config';
+
+// Explicitly load .env file from server directory
+dotenv.config({ path: resolve(__dirname, '../.env') });
 
 // Use DATABASE_URL from environment, or construct from existing DB_* variables
 // This matches the database configuration in database.ts
