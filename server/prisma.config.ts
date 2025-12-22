@@ -6,8 +6,31 @@ import dotenv from 'dotenv';
 import { resolve } from 'path';
 import { defineConfig } from 'prisma/config';
 
-// Explicitly load .env file from server directory
-dotenv.config({ path: resolve(__dirname, '../.env') });
+// Explicitly load .env file - try multiple possible locations
+const envPaths = [
+  resolve(process.cwd(), '.env'),           // Current directory (server/)
+  resolve(process.cwd(), '../.env'),        // Parent directory
+  resolve(__dirname || process.cwd(), '.env'), // Fallback
+];
+
+let envLoaded = false;
+for (const envPath of envPaths) {
+  try {
+    const result = dotenv.config({ path: envPath });
+    if (!result.error && result.parsed) {
+      envLoaded = true;
+      console.log(`✅ Loaded .env from: ${envPath}`);
+      break;
+    }
+  } catch (e) {
+    // Continue to next path
+  }
+}
+
+if (!envLoaded) {
+  console.warn('⚠️  Could not find .env file in standard locations. Using process.env directly.');
+  dotenv.config(); // Try default location as fallback
+}
 
 // Use DATABASE_URL from environment, or construct from existing DB_* variables
 // This matches the database configuration in database.ts
