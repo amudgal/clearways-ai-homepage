@@ -12,7 +12,7 @@ export class RocLookupAgent extends BaseAgent {
         ts: new Date().toISOString(),
         level: 'info',
         agent: 'RocLookup',
-        summary: `Looking up ROC ${rocNumber} in Arizona ROC database`,
+        summary: `Looking up ROC ${rocNumber} from official Arizona ROC website: https://azroc.my.site.com/AZRoc/s/contractor-search`,
       });
 
       // Query ROC database (this is a placeholder - you'll need to implement actual ROC API or database)
@@ -54,7 +54,7 @@ export class RocLookupAgent extends BaseAgent {
         type: 'roc_record',
         source: 'Arizona ROC Database',
         content: JSON.stringify(rocData),
-        url: `https://roc.az.gov/contractor/${rocNumber}`,
+        url: `https://azroc.my.site.com/AZRoc/s/contractor-search?search=${rocNumber}`,
         timestamp: new Date(),
       };
 
@@ -153,58 +153,194 @@ export class RocLookupAgent extends BaseAgent {
         // Navigate to ROC search page
         await page.goto(rocSearchUrl, { waitUntil: 'networkidle', timeout: 30000 });
 
-        // Wait for search form to load
-        await page.waitForSelector('input[type="search"], input[name*="search"], input[id*="search"]', { timeout: 10000 });
+        // Wait for page to load (Salesforce sites can take time)
+        await page.waitForLoadState('networkidle', { timeout: 30000 });
+        await page.waitForTimeout(2000); // Additional wait for dynamic content
 
-        // Fill in ROC number and submit
-        const searchInput = await page.$('input[type="search"], input[name*="search"], input[id*="search"], input[placeholder*="ROC"]');
+        // Try multiple selector strategies for Salesforce-based sites
+        let searchInput = null;
+        const possibleSelectors = [
+          'input[type="search"]',
+          'input[name*="search"]',
+          'input[id*="search"]',
+          'input[placeholder*="ROC"]',
+          'input[placeholder*="License"]',
+          'input[placeholder*="Contractor"]',
+          'input.slds-input',
+          'input[class*="input"]',
+          'input',
+        ];
+
+        for (const selector of possibleSelectors) {
+          try {
+            await page.waitForSelector(selector, { timeout: 5000 });
+            searchInput = await page.$(selector);
+            if (searchInput) break;
+          } catch (e) {
+            continue;
+          }
+        }
+
         if (searchInput) {
           await searchInput.fill(rocNumber);
           await page.keyboard.press('Enter');
           
-          // Wait for results
-          await page.waitForTimeout(2000);
+          // Wait for results to load
+          await page.waitForTimeout(3000);
+          await page.waitForLoadState('networkidle', { timeout: 15000 });
           
           // Extract contractor information from results page
           const contractorData = await page.evaluate((rocNum) => {
             // Try to find contractor information in the page
             const data: any = { rocNumber: rocNum };
             
-            // Look for common selectors in Salesforce-based sites
-            const nameElement = document.querySelector('[data-label*="Name"], .slds-text-heading, h1, h2, .contractor-name');
-            if (nameElement) {
-              data.contractorName = nameElement.textContent?.trim();
+            // Look for common selectors in Salesforce-based sites (Salesforce Lightning Design System)
+            const selectors = {
+              name: [
+                '[data-label*="Name"]',
+                '[data-label*="Contractor"]',
+                '.slds-text-heading_large',
+                '.slds-text-heading_medium',
+                'h1', 'h2', 'h3',
+                '.contractor-name',
+                '[class*="name"]',
+                'td:contains("Name")',
+              ],
+              business: [
+                '[data-label*="Business"]',
+                '[data-label*="Company"]',
+                '.business-name',
+                '[class*="business"]',
+              ],
+              address: [
+                '[data-label*="Address"]',
+                '[data-label*="Location"]',
+                '.address',
+                '[class*="address"]',
+              ],
+              phone: [
+                '[data-label*="Phone"]',
+                '[data-label*="Telephone"]',
+                '.phone',
+                'a[href^="tel:"]',
+                '[class*="phone"]',
+              ],
+              website: [
+                '[data-label*="Website"]',
+                '[data-label*="Web"]',
+                '.website',
+                'a[href^="http"]:not([href*="azroc"])',
+                '[class*="website"]',
+              ],
+              classification: [
+                '[data-label*="Classification"]',
+                '[data-label*="Type"]',
+                '.classification',
+                '[class*="classification"]',
+              ],
+              status: [
+                '[data-label*="Status"]',
+                '[data-label*="License Status"]',
+                '.status',
+                '.license-status',
+                '[class*="status"]',
+              ],
+            };
+
+            // Try to find name
+            for (const selector of selectors.name) {
+              const element = document.querySelector(selector);
+              if (element && element.textContent?.trim()) {
+                data.contractorName = element.textContent.trim();
+                break;
+              }
             }
 
-            const businessElement = document.querySelector('[data-label*="Business"], .business-name');
-            if (businessElement) {
-              data.businessName = businessElement.textContent?.trim();
+            // Try to find business name
+            for (const selector of selectors.business) {
+              const element = document.querySelector(selector);
+              if (element && element.textContent?.trim()) {
+                data.businessName = element.textContent.trim();
+                break;
+              }
             }
 
-            const addressElement = document.querySelector('[data-label*="Address"], .address');
-            if (addressElement) {
-              data.address = addressElement.textContent?.trim();
+            // Try to find address
+            for (const selector of selectors.address) {
+              const element = document.querySelector(selector);
+              if (element && element.textContent?.trim()) {
+                data.address = element.textContent.trim();
+                break;
+              }
             }
 
-            const phoneElement = document.querySelector('[data-label*="Phone"], .phone, a[href^="tel:"]');
-            if (phoneElement) {
-              data.phone = phoneElement.textContent?.trim() || phoneElement.getAttribute('href')?.replace('tel:', '');
+            // Try to find phone
+            for (const selector of selectors.phone) {
+              const element = document.querySelector(selector);
+              if (element) {
+                data.phone = element.textContent?.trim() || element.getAttribute('href')?.replace('tel:', '');
+                if (data.phone) break;
+              }
             }
 
-            const websiteElement = document.querySelector('[data-label*="Website"], .website, a[href^="http"]');
-            if (websiteElement) {
-              data.website = websiteElement.textContent?.trim() || websiteElement.getAttribute('href');
+            // Try to find website
+            for (const selector of selectors.website) {
+              const element = document.querySelector(selector);
+              if (element) {
+                data.website = element.textContent?.trim() || element.getAttribute('href');
+                if (data.website && !data.website.includes('azroc')) break;
+              }
             }
 
-            const classificationElement = document.querySelector('[data-label*="Classification"], .classification');
-            if (classificationElement) {
-              data.classification = classificationElement.textContent?.trim();
+            // Try to find classification
+            for (const selector of selectors.classification) {
+              const element = document.querySelector(selector);
+              if (element && element.textContent?.trim()) {
+                data.classification = element.textContent.trim();
+                break;
+              }
             }
 
-            const statusElement = document.querySelector('[data-label*="Status"], .status, .license-status');
-            if (statusElement) {
-              data.licenseStatus = statusElement.textContent?.trim();
+            // Try to find status
+            for (const selector of selectors.status) {
+              const element = document.querySelector(selector);
+              if (element && element.textContent?.trim()) {
+                data.licenseStatus = element.textContent.trim();
+                break;
+              }
             }
+
+            // Also try to extract from table rows if present
+            const rows = document.querySelectorAll('tr, .slds-table tbody tr');
+            rows.forEach((row) => {
+              const cells = row.querySelectorAll('td, th');
+              cells.forEach((cell, idx) => {
+                const text = cell.textContent?.trim() || '';
+                const header = cells[0]?.textContent?.trim() || '';
+                
+                if (header.toLowerCase().includes('name') && !data.contractorName) {
+                  data.contractorName = text;
+                }
+                if (header.toLowerCase().includes('business') && !data.businessName) {
+                  data.businessName = text;
+                }
+                if (header.toLowerCase().includes('address') && !data.address) {
+                  data.address = text;
+                }
+                if (header.toLowerCase().includes('phone') && !data.phone) {
+                  data.phone = text;
+                }
+                if (header.toLowerCase().includes('website') && !data.website) {
+                  data.website = text;
+                }
+                if (header.toLowerCase().includes('classification') && !data.classification) {
+                  data.classification = text;
+                }
+                if (header.toLowerCase().includes('status') && !data.licenseStatus) {
+                  data.licenseStatus = text;
+                }
+              });
+            });
 
             return Object.keys(data).length > 1 ? data : null;
           }, rocNumber);
