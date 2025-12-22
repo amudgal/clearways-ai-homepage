@@ -7,11 +7,17 @@ export default function AgentMarketplace() {
   const [selectedUseCase, setSelectedUseCase] = useState('All');
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
 
+  // Debug: Log agents data
+  console.log('[AgentMarketplace] Total agents:', agents.length);
+  console.log('[AgentMarketplace] Agents data:', agents);
+
   const filteredAgents = agents.filter((agent) => {
     const domainMatch = selectedDomain === 'All' || agent.domain === selectedDomain;
     const useCaseMatch = selectedUseCase === 'All' || agent.useCase === selectedUseCase;
     return domainMatch && useCaseMatch;
   });
+
+  console.log('[AgentMarketplace] Filtered agents:', filteredAgents.length);
 
   return (
     <div className="min-h-screen bg-gray-50">
