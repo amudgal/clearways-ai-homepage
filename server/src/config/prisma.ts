@@ -45,8 +45,20 @@ if (!databaseUrl) {
   throw new Error('Database configuration required. Please set either DATABASE_URL or DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD in your .env file to point to your existing PostgreSQL database.');
 }
 
-// Create PostgreSQL connection pool
-const pool = new Pool({ connectionString: databaseUrl });
+// Create PostgreSQL connection pool with SSL configuration
+// Match the SSL settings from database.ts
+const poolConfig: any = {
+  connectionString: databaseUrl,
+};
+
+// Configure SSL if DB_SSL is set to 'true'
+if (process.env.DB_SSL === 'true') {
+  poolConfig.ssl = {
+    rejectUnauthorized: false, // Accept self-signed certificates (needed for AWS RDS)
+  };
+}
+
+const pool = new Pool(poolConfig);
 
 // Create Prisma adapter
 const adapter = new PrismaPg(pool);
