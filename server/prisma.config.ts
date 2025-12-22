@@ -3,10 +3,9 @@
 // Uses the existing PostgreSQL database configured via DB_* variables or DATABASE_URL
 
 // Import helper to build DATABASE_URL before Prisma reads it
+// This ensures DATABASE_URL is set in process.env
 import './src/config/buildDatabaseUrl';
 
-import dotenv from 'dotenv';
-import { resolve } from 'path';
 import { defineConfig } from 'prisma/config';
 
 // Explicitly load .env file - try multiple possible locations
