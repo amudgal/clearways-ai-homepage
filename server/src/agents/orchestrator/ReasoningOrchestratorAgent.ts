@@ -5,7 +5,9 @@ import { BaseAgent } from '../base/BaseAgent';
 import { AgentResult, AgentContext, Entity, EmailCandidate, ExplanationEvent } from '../types';
 import { LLMReasoningService, DiscoveryStrategy } from '../../services/llmService';
 import { RocLookupAgent } from '../roc/RocLookupAgent';
-// import { SearchDiscoveryAgent } from '../search/SearchDiscoveryAgent';
+import { BrowserSearchAgent } from '../search/BrowserSearchAgent';
+import { KnowledgeService } from '../../services/knowledgeService';
+import { prisma } from '../../config/prisma';
 // import { ScrapeExtractionAgent } from '../scrape/ScrapeExtractionAgent';
 // import { EmailValidationAgent } from '../validation/EmailValidationAgent';
 // import { ComplianceAgent } from '../compliance/ComplianceAgent';
@@ -15,6 +17,7 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
   private llmService: LLMReasoningService;
   private useLLM: boolean;
   private rocLookup: RocLookupAgent;
+  private browserSearch: BrowserSearchAgent;
   private knowledgeService: KnowledgeService;
 
   constructor(
@@ -25,6 +28,7 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
     this.llmService = new LLMReasoningService();
     this.useLLM = context.preferences.useLLM !== false && this.llmService.isAvailable();
     this.rocLookup = new RocLookupAgent(context, eventEmitter);
+    this.browserSearch = new BrowserSearchAgent(context, eventEmitter);
     this.knowledgeService = new KnowledgeService();
 
     if (this.useLLM) {
@@ -327,11 +331,42 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
   }
 
   /**
-   * Helper to get entity by ID
+   * Extract emails from text using regex
+   */
+  private extractEmailsFromText(text: string): string[] {
+    const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+    const matches = text.match(emailRegex);
+    return matches ? Array.from(new Set(matches)) : []; // Remove duplicates
+  }
+
+  /**
+   * Helper to get entity by ID from database
    */
   private async getEntityById(entityId: string): Promise<Entity | null> {
-    // TODO: Implement entity retrieval from database
-    return null;
+    try {
+      const entity = await prisma.entity.findUnique({
+        where: { id: entityId },
+      });
+
+      if (!entity) {
+        return null;
+      }
+
+      return {
+        id: entity.id,
+        rocNumber: entity.rocNumber || '',
+        contractorName: entity.contractorName || '',
+        officialWebsite: entity.officialWebsite || undefined,
+        businessName: entity.businessName || undefined,
+        address: entity.address || undefined,
+        phone: entity.phone || undefined,
+        classification: entity.classification || undefined,
+        licenseStatus: entity.licenseStatus || undefined,
+      };
+    } catch (error) {
+      console.error('[ReasoningOrchestrator] Failed to get entity:', error);
+      return null;
+    }
   }
 
   /**
