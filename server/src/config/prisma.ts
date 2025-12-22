@@ -1,6 +1,6 @@
 // Prisma Client Configuration
 // Prisma 7+ uses DATABASE_URL from environment variables or .env file
-// The datasources property is no longer accepted in the constructor
+// The schema.prisma file defines the datasource URL
 
 import { PrismaClient } from '@prisma/client';
 
