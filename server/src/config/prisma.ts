@@ -5,13 +5,41 @@
 import { PrismaClient } from '../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
+import dotenv from 'dotenv';
+import { resolve } from 'path';
+
+// Load .env file first
+const envPaths = [
+  resolve(process.cwd(), '.env'),
+  resolve(process.cwd(), '../.env'),
+];
+
+let envLoaded = false;
+for (const envPath of envPaths) {
+  const result = dotenv.config({ path: envPath, override: false });
+  if (!result.error) {
+    envLoaded = true;
+    break;
+  }
+}
+
+if (!envLoaded) {
+  dotenv.config(); // Try default location
+}
+
+// Build DATABASE_URL from DB_* variables if not set or pointing to localhost
+const currentUrl = process.env.DATABASE_URL;
+const isLocalhost = currentUrl && (
+  currentUrl.includes('localhost') || 
+  currentUrl.includes('127.0.0.1') ||
+  currentUrl.includes('mydb')
+);
 
 // Get DATABASE_URL from environment or construct from existing DB_* variables
 // Uses the same database configuration as database.ts (DB_HOST, DB_NAME, DB_USER, DB_PASSWORD)
-const databaseUrl = process.env.DATABASE_URL || 
-  (process.env.DB_HOST && process.env.DB_NAME && process.env.DB_USER
-    ? `postgresql://${process.env.DB_USER}:${encodeURIComponent(process.env.DB_PASSWORD || '')}@${process.env.DB_HOST}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME}${process.env.DB_SSL === 'true' ? '?sslmode=require' : ''}`
-    : null);
+const databaseUrl = (!currentUrl || isLocalhost) && process.env.DB_HOST && process.env.DB_NAME && process.env.DB_USER
+  ? `postgresql://${process.env.DB_USER}:${encodeURIComponent(process.env.DB_PASSWORD || '')}@${process.env.DB_HOST}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME}${process.env.DB_SSL === 'true' ? '?sslmode=require' : ''}`
+  : (currentUrl && !isLocalhost ? currentUrl : null);
 
 if (!databaseUrl) {
   throw new Error('Database configuration required. Please set either DATABASE_URL or DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD in your .env file to point to your existing PostgreSQL database.');

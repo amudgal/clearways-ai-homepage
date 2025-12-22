@@ -24,19 +24,32 @@ if (!envLoaded) {
   dotenv.config(); // Try default location
 }
 
-// Build DATABASE_URL from DB_* variables if not already set
-if (!process.env.DATABASE_URL && process.env.DB_HOST && process.env.DB_NAME && process.env.DB_USER) {
+// Build DATABASE_URL from DB_* variables if:
+// 1. DATABASE_URL is not set, OR
+// 2. DATABASE_URL points to localhost (likely a default/placeholder value)
+const currentUrl = process.env.DATABASE_URL;
+const isLocalhost = currentUrl && (
+  currentUrl.includes('localhost') || 
+  currentUrl.includes('127.0.0.1') ||
+  currentUrl.includes('mydb')
+);
+
+if ((!currentUrl || isLocalhost) && process.env.DB_HOST && process.env.DB_NAME && process.env.DB_USER) {
   const password = encodeURIComponent(process.env.DB_PASSWORD || '');
   const port = process.env.DB_PORT || '5432';
   const sslMode = process.env.DB_SSL === 'true' ? '?sslmode=require' : '';
   
   process.env.DATABASE_URL = `postgresql://${process.env.DB_USER}:${password}@${process.env.DB_HOST}:${port}/${process.env.DB_NAME}${sslMode}`;
   
-  console.log('✅ Constructed DATABASE_URL from DB_* variables');
+  if (isLocalhost) {
+    console.log('⚠️  DATABASE_URL was pointing to localhost, reconstructing from DB_* variables');
+  } else {
+    console.log('✅ Constructed DATABASE_URL from DB_* variables');
+  }
   console.log(`   Host: ${process.env.DB_HOST}`);
   console.log(`   Database: ${process.env.DB_NAME}`);
   console.log(`   User: ${process.env.DB_USER}`);
-} else if (process.env.DATABASE_URL) {
+} else if (process.env.DATABASE_URL && !isLocalhost) {
   console.log('✅ Using DATABASE_URL from environment');
 }
 

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -8,156 +5,665 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Note: In Prisma 7+, the url is configured in prisma.config.ts
-  // DATABASE_URL must be set in environment before running Prisma CLI commands
+}
+
+model SiteTenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(255)
+  domain    String   @unique @db.VarChar(255)
+  status    String   @default("ACTIVE") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("site_tenants")
+}
+
+model SiteUser {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique @db.VarChar(255)
+  domain       String    @db.VarChar(255)
+  tenantId     String    @map("tenant_id") @db.Uuid
+  role         String    @default("USER") @db.VarChar(50)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(6)
+  username     String?   @unique @db.VarChar(255)
+  passwordHash String?   @map("password_hash") @db.VarChar(255)
+
+  @@index([email], map: "idx_site_users_email")
+  @@index([tenantId], map: "idx_site_users_tenant_id")
+  @@map("site_users")
+}
+
+model User {
+  id                           Int       @id @default(autoincrement())
+  email                        String    @unique @db.VarChar(255)
+  name                         String?   @db.VarChar(255)
+  createdAt                    DateTime? @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt                    DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+  passwordHash                 String?   @map("password_hash") @db.VarChar(255)
+  subscriptionTier             String?   @default("free") @map("subscription_tier") @db.VarChar(50)
+  stripeCustomerId             String?   @map("stripe_customer_id") @db.VarChar(255)
+  stripeSubscriptionId         String?   @map("stripe_subscription_id") @db.VarChar(255)
+  subscriptionStatus           String?   @default("inactive") @map("subscription_status") @db.VarChar(50)
+  subscriptionCurrentPeriodEnd DateTime? @map("subscription_current_period_end") @db.Timestamp(0)
+
+  @@map("users")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model analysis_feedback {
+  id                  Int       @id @default(autoincrement())
+  analysis_id         Int
+  shared_analysis_id  Int?
+  feedback_by_user_id Int
+  feedback_text       String
+  rating              Int?
+  status              String?   @default("active") @db.VarChar(50)
+  created_at          DateTime? @default(now()) @db.Timestamp(6)
+  updated_at          DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([analysis_id], map: "idx_analysis_feedback_analysis_id")
+  @@index([created_at(sort: Desc)], map: "idx_analysis_feedback_created_at")
+  @@index([feedback_by_user_id], map: "idx_analysis_feedback_feedback_by")
+  @@index([shared_analysis_id], map: "idx_analysis_feedback_shared_analysis_id")
+}
+
+model chat_embeddings {
+  id               Int       @id @default(autoincrement())
+  chat_history_id  Int       @unique
+  embedding_vector Json
+  chat_text        String
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+  updated_at       DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([chat_history_id], map: "idx_chat_embeddings_chat_id")
+  @@index([embedding_vector], map: "idx_chat_embeddings_vector", type: Gin)
+}
+
+model chat_histories {
+  id           Int       @id @default(autoincrement())
+  user_id      Int
+  node_id      String    @db.VarChar(255)
+  chat_id      String    @db.VarChar(255)
+  title        String?   @default("Untitled Chat") @db.VarChar(255)
+  messages     Json      @default("[]")
+  data_sources Json      @default("[]")
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  updated_at   DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([user_id, node_id, chat_id])
+  @@index([created_at(sort: Desc)], map: "idx_chat_histories_created_at")
+  @@index([node_id], map: "idx_chat_histories_node_id")
+  @@index([user_id], map: "idx_chat_histories_user_id")
+  @@index([user_id, node_id], map: "idx_chat_histories_user_node")
+}
+
+model current_usage_period {
+  user_id      Int       @id
+  period_start DateTime  @db.Timestamp(6)
+  period_end   DateTime  @db.Timestamp(6)
+  usage_data   Json
+  updated_at   DateTime? @default(now()) @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model expert_ratings {
+  id               Int       @id @default(autoincrement())
+  expert_user_id   Int
+  rated_by_user_id Int
+  feedback_id      Int
+  analysis_id      Int
+  impact_rating    Int
+  comment          String?
+  status           String?   @default("active") @db.VarChar(50)
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+  updated_at       DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([expert_user_id, rated_by_user_id, feedback_id])
+  @@index([analysis_id], map: "idx_expert_ratings_analysis_id")
+  @@index([created_at(sort: Desc)], map: "idx_expert_ratings_created_at")
+  @@index([expert_user_id], map: "idx_expert_ratings_expert_user_id")
+  @@index([feedback_id], map: "idx_expert_ratings_feedback_id")
+  @@index([rated_by_user_id], map: "idx_expert_ratings_rated_by_user_id")
+  @@index([status], map: "idx_expert_ratings_status")
+}
+
+model mindmaps {
+  id         Int       @id @default(autoincrement())
+  name       String    @db.VarChar(255)
+  data       Json
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([created_at(sort: Desc)], map: "idx_mindmaps_created_at")
+  @@index([data], map: "idx_mindmaps_data", type: Gin)
+}
+
+model node_groups {
+  id          Int       @id @default(autoincrement())
+  user_id     Int
+  group_name  String    @db.VarChar(255)
+  description String?
+  nodes       Json      @default("[]")
+  node_types  Json      @default("[]")
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([created_at(sort: Desc)], map: "idx_node_groups_created_at")
+  @@index([node_types], map: "idx_node_groups_node_types", type: Gin)
+  @@index([user_id, created_at(sort: Desc)], map: "idx_node_groups_user_created")
+  @@index([user_id], map: "idx_node_groups_user_id")
+}
+
+model saved_analyses {
+  id            Int       @id @default(autoincrement())
+  user_id       String    @db.VarChar(255)
+  analysis_name String    @db.VarChar(255)
+  description   String?
+  mindmap_data  Json
+  collaterals   Json      @default("[]")
+  roi_estimate  Decimal?  @db.Decimal(10, 2)
+  status        String?   @default("draft") @db.VarChar(50)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([created_at(sort: Desc)], map: "idx_saved_analyses_created_at")
+  @@index([user_id, created_at(sort: Desc)], map: "idx_saved_analyses_user_created")
+  @@index([user_id], map: "idx_saved_analyses_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model shared_analyses {
+  id                   Int       @id @default(autoincrement())
+  analysis_id          Int
+  shared_by_user_id    Int
+  shared_with_user_id  Int?
+  shared_with_email    String?   @db.VarChar(255)
+  permission           String?   @default("view") @db.VarChar(50)
+  status               String?   @default("active") @db.VarChar(50)
+  shared_at            DateTime? @default(now()) @db.Timestamp(6)
+  updated_at           DateTime? @default(now()) @db.Timestamp(6)
+  feedback_requested   Boolean?  @default(false)
+  shared_with_panel_id Int?
+
+  @@index([analysis_id], map: "idx_shared_analyses_analysis_id")
+  @@index([feedback_requested], map: "idx_shared_analyses_feedback_requested")
+  @@index([shared_by_user_id], map: "idx_shared_analyses_shared_by")
+  @@index([shared_with_email], map: "idx_shared_analyses_shared_with_email")
+  @@index([shared_with_user_id], map: "idx_shared_analyses_shared_with_user")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model site_analyses {
+  id                     String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenant_id              String    @db.Uuid
+  status                 String    @default("LIVE") @db.VarChar(50)
+  created_by             String    @db.Uuid
+  pricing_version_id     String    @db.Uuid
+  title                  String?   @db.VarChar(255)
+  created_at             DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime? @default(now()) @db.Timestamptz(6)
+  saved_at               DateTime? @db.Timestamptz(6)
+  locked_at              DateTime? @db.Timestamptz(6)
+  current_version_number Int?      @default(1)
+  analysis_type          String    @default("TCO") @db.VarChar(50)
+
+  @@index([created_by], map: "idx_site_analyses_created_by")
+  @@index([status], map: "idx_site_analyses_status")
+  @@index([tenant_id], map: "idx_site_analyses_tenant_id")
+  @@index([analysis_type], map: "idx_site_analyses_type")
+}
+
+model site_analysis_computed_results {
+  analysis_id              String    @id @db.Uuid
+  annualized_licensing     Decimal   @db.Decimal(15, 2)
+  annualized_metered_costs Decimal   @db.Decimal(15, 2)
+  annualized_support_costs Decimal   @db.Decimal(15, 2)
+  total_cost               Decimal   @db.Decimal(15, 2)
+  confidence_scores        Json
+  sensitivity_ratings      Json
+  cost_breakdown           Json
+  computed_at              DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model site_analysis_inputs {
+  analysis_id               String  @id @db.Uuid
+  mstr_license_per_instance Decimal @default(0) @db.Decimal(15, 2)
+  ancillary_license_pct     Decimal @default(0) @db.Decimal(15, 2)
+  instance_count            Int     @default(0)
+  hosting_environment       String  @db.VarChar(50)
+  tier_selections           Json?
+  storage_gb                Decimal @default(0) @db.Decimal(15, 2)
+  egress_gb                 Decimal @default(0) @db.Decimal(15, 2)
+  compute_gb                Decimal @default(0) @db.Decimal(15, 2)
+  infrastructure_gb         Decimal @default(0) @db.Decimal(15, 2)
+  cloud_personnel_cost      Decimal @default(0) @db.Decimal(15, 2)
+  mstr_support_cost         Decimal @default(0) @db.Decimal(15, 2)
+}
+
+model site_analysis_versions {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  analysis_id      String    @db.Uuid
+  version_number   Int
+  editable_content Json
+  created_by       String    @db.Uuid
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([analysis_id, version_number])
+  @@index([analysis_id], map: "idx_site_analysis_versions_analysis_id")
+  @@index([created_at(sort: Desc)], map: "idx_site_analysis_versions_created_at")
+}
+
+model site_audit_logs {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id     String?   @db.Uuid
+  tenant_id   String?   @db.Uuid
+  action      String    @db.VarChar(100)
+  target_type String?   @db.VarChar(50)
+  target_id   String?   @db.Uuid
+  metadata    Json?
+  timestamp   DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id], map: "idx_site_audit_logs_tenant_id")
+  @@index([timestamp], map: "idx_site_audit_logs_timestamp")
+  @@index([user_id], map: "idx_site_audit_logs_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model site_cloud_pricing {
+  id                 String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  pricing_version_id String    @db.Uuid
+  provider           String    @db.VarChar(50)
+  service_type       String    @db.VarChar(100)
+  tier               String?   @db.VarChar(100)
+  region             String?   @db.VarChar(100)
+  unit_type          String    @db.VarChar(50)
+  unit_price         Decimal   @db.Decimal(15, 6)
+  annual_multiplier  Decimal   @default(1.0) @db.Decimal(10, 2)
+  metadata           Json?
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([provider], map: "idx_site_cloud_pricing_provider")
+  @@index([pricing_version_id], map: "idx_site_cloud_pricing_version")
+}
+
+model site_otp_store {
+  email      String    @id @db.VarChar(255)
+  code       String    @db.VarChar(6)
+  expires_at DateTime  @db.Timestamptz(6)
+  attempts   Int       @default(0)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([expires_at], map: "idx_site_otp_store_expires_at")
+}
+
+model site_pricing_versions {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  version        String    @unique @db.VarChar(50)
+  effective_date DateTime  @db.Date
+  created_by     String?   @db.Uuid
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  is_active      Boolean?  @default(true)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model team_members {
+  id                 Int       @id @default(autoincrement())
+  team_id            Int
+  user_id            Int?
+  email              String?   @db.VarChar(255)
+  role               String?   @default("member") @db.VarChar(50)
+  status             String?   @default("active") @db.VarChar(50)
+  invited_by_user_id Int?
+  joined_at          DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([email], map: "idx_team_members_email")
+  @@index([team_id], map: "idx_team_members_team_id")
+  @@index([user_id], map: "idx_team_members_user_id")
+}
+
+model teams {
+  id                 Int       @id @default(autoincrement())
+  name               String    @db.VarChar(255)
+  description        String?
+  category           String?   @db.VarChar(100)
+  team_type          String?   @default("team") @db.VarChar(50)
+  created_by_user_id Int
+  created_at         DateTime? @default(now()) @db.Timestamp(6)
+  updated_at         DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([created_by_user_id], map: "idx_teams_created_by")
+  @@index([team_type, created_by_user_id], map: "idx_teams_team_type")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model tester_feedback {
+  id            Int       @id @default(autoincrement())
+  user_id       Int
+  feedback_type String    @db.VarChar(50)
+  title         String    @db.VarChar(255)
+  description   String
+  page_url      String?   @db.VarChar(500)
+  severity      String?   @db.VarChar(20)
+  status        String?   @default("open") @db.VarChar(20)
+  screenshots   Json?
+  browser_info  String?   @db.VarChar(255)
+  os_info       String?   @db.VarChar(255)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([created_at(sort: Desc)], map: "idx_tester_feedback_created_at")
+  @@index([status], map: "idx_tester_feedback_status")
+  @@index([user_id], map: "idx_tester_feedback_user_id")
+}
+
+model usage_alerts {
+  id            Int       @id @default(autoincrement())
+  user_id       Int
+  metric_type   String    @db.VarChar(50)
+  threshold     Int
+  current_usage Decimal   @db.Decimal(10, 2)
+  limit_value   Decimal   @db.Decimal(10, 2)
+  message       String
+  sent_at       DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([user_id, sent_at], map: "idx_usage_alerts_user_id")
+}
+
+model usage_limits {
+  id                     Int       @id @default(autoincrement())
+  subscription_tier      String    @db.VarChar(50)
+  metric_type            String    @db.VarChar(50)
+  included_quantity      Decimal   @db.Decimal(10, 2)
+  overage_price_per_unit Decimal   @db.Decimal(10, 4)
+  hard_limit             Decimal?  @db.Decimal(10, 2)
+  created_at             DateTime? @default(now()) @db.Timestamp(6)
+  updated_at             DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([subscription_tier, metric_type])
+  @@index([subscription_tier, metric_type], map: "idx_usage_limits_tier_type")
+}
+
+model usage_metrics {
+  id                Int       @id @default(autoincrement())
+  user_id           Int
+  metric_type       String    @db.VarChar(50)
+  quantity          Decimal   @db.Decimal(10, 2)
+  cost_usd          Decimal?  @default(0) @db.Decimal(10, 4)
+  billed_amount_usd Decimal?  @default(0) @db.Decimal(10, 4)
+  period_start      DateTime  @db.Timestamp(6)
+  period_end        DateTime  @db.Timestamp(6)
+  metadata          Json?
+  created_at        DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([user_id, period_start, period_end], map: "idx_usage_metrics_period")
+  @@index([user_id, metric_type, period_start, period_end], map: "idx_usage_metrics_type")
+  @@index([user_id], map: "idx_usage_metrics_user_id")
+}
+
+model user_invitations {
+  id                 Int       @id @default(autoincrement())
+  email              String    @db.VarChar(255)
+  invited_by_user_id Int
+  invitation_token   String    @unique @db.VarChar(255)
+  status             String?   @default("pending") @db.VarChar(50)
+  expires_at         DateTime  @db.Timestamp(6)
+  accepted_at        DateTime? @db.Timestamp(6)
+  created_at         DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([email], map: "idx_user_invitations_email")
+  @@index([invited_by_user_id], map: "idx_user_invitations_invited_by")
+  @@index([invitation_token], map: "idx_user_invitations_token")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model video_assets {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     Int
+  mind_map_id Int?
+  node_id     String?   @db.VarChar(255)
+  type        String    @db.VarChar(50)
+  s3_key      String
+  metadata    Json?     @default("{}")
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([mind_map_id], map: "idx_video_assets_mind_map_id")
+  @@index([node_id], map: "idx_video_assets_node_id")
+  @@index([type], map: "idx_video_assets_type")
+  @@index([user_id], map: "idx_video_assets_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model video_jobs {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            Int
+  mind_map_id        Int
+  chat_node_id       String    @db.VarChar(255)
+  status             String    @default("QUEUED") @db.VarChar(50)
+  request_hash       String    @db.VarChar(64)
+  synthesia_video_id String?   @db.VarChar(255)
+  scene_payload_json Json
+  result_s3_key      String?
+  result_signed_url  String?
+  error_code         String?   @db.VarChar(100)
+  error_message      String?
+  created_at         DateTime? @default(now()) @db.Timestamp(6)
+  updated_at         DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([chat_node_id], map: "idx_video_jobs_chat_node_id")
+  @@index([created_at(sort: Desc)], map: "idx_video_jobs_created_at")
+  @@index([mind_map_id], map: "idx_video_jobs_mind_map_id")
+  @@index([status], map: "idx_video_jobs_status")
+  @@index([user_id], map: "idx_video_jobs_user_id")
 }
 
 // Agent System Models
 
 model Subscription {
-  id                String   @id @default(uuid())
-  userId            String
-  stripeCustomerId  String?  @unique
-  stripeSubscriptionId String? @unique
-  status            String
-  currentPeriodStart DateTime?
-  currentPeriodEnd   DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id")
+  stripeCustomerId  String?  @unique @map("stripe_customer_id") @db.VarChar(255)
+  stripeSubscriptionId String? @unique @map("stripe_subscription_id") @db.VarChar(255)
+  status            String   @db.VarChar(50)
+  currentPeriodStart DateTime? @map("current_period_start") @db.Timestamptz(6)
+  currentPeriodEnd   DateTime? @map("current_period_end") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  @@index([userId])
+  @@index([userId], map: "idx_subscription_user_id")
+  @@map("subscriptions")
 }
 
 model Job {
-  id                String   @id @default(uuid())
-  createdBy         String
-  status            String   @default("pending")
+  id                String   @id @default(uuid()) @db.Uuid
+  createdBy         String   @map("created_by")
+  status            String   @default("pending") @db.VarChar(50)
   preferences       Json?
-  budgetCap         Decimal? @db.Decimal(15, 2)
-  totalCost         Decimal  @default(0) @db.Decimal(15, 2)
-  currency          String   @default("USD")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  startedAt         DateTime?
-  completedAt       DateTime?
+  budgetCap         Decimal? @map("budget_cap") @db.Decimal(15, 2)
+  totalCost         Decimal  @default(0) @map("total_cost") @db.Decimal(15, 2)
+  currency          String   @default("USD") @db.VarChar(10)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  startedAt         DateTime? @map("started_at") @db.Timestamptz(6)
+  completedAt       DateTime? @map("completed_at") @db.Timestamptz(6)
   
   contractorRows    ContractorInputRow[]
   entities          Entity[]
-  visitedSites      VisitedSiteLog[]
+  visitedSites       VisitedSiteLog[]
   costLineItems     CostLineItem[]
 
-  @@index([createdBy])
-  @@index([status])
+  @@index([createdBy], map: "idx_job_created_by")
+  @@index([status], map: "idx_job_status")
+  @@map("jobs")
 }
 
 model ContractorInputRow {
-  id                String   @id @default(uuid())
-  jobId             String
-  rocNumber         String?
-  contractorName    String
-  licenseStatus     String?
-  classification    String?
-  city              String?
-  phone             String?
-  website           String?
-  rowIndex          Int
+  id                String   @id @default(uuid()) @db.Uuid
+  jobId             String   @map("job_id") @db.Uuid
+  rocNumber         String?  @map("roc_number") @db.VarChar(255)
+  contractorName    String   @map("contractor_name") @db.VarChar(255)
+  licenseStatus     String?  @map("license_status") @db.VarChar(50)
+  classification    String?  @db.VarChar(255)
+  city              String?  @db.VarChar(255)
+  phone             String?  @db.VarChar(50)
+  website           String?  @db.VarChar(255)
+  rowIndex          Int      @map("row_index")
   processed         Boolean  @default(false)
-  createdAt         DateTime @default(now())
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   job               Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  @@index([jobId])
+  @@index([jobId], map: "idx_contractor_input_row_job_id")
+  @@map("contractor_input_rows")
 }
 
 model Entity {
-  id                String   @id @default(uuid())
-  jobId             String
-  contractorInputRowId String?
-  rocNumber         String?
-  contractorName    String
-  businessName      String?
-  officialWebsite   String?
-  address           String?
-  phone             String?
-  classification    String?
-  licenseStatus     String?
+  id                String   @id @default(uuid()) @db.Uuid
+  jobId             String   @map("job_id") @db.Uuid
+  contractorInputRowId String? @map("contractor_input_row_id") @db.Uuid
+  rocNumber         String?  @map("roc_number") @db.VarChar(255)
+  contractorName    String   @map("contractor_name") @db.VarChar(255)
+  businessName      String?  @map("business_name") @db.VarChar(255)
+  officialWebsite   String?  @map("official_website") @db.VarChar(255)
+  address           String?  @db.Text
+  phone             String?  @db.VarChar(50)
+  classification    String?  @db.VarChar(255)
+  licenseStatus     String?  @map("license_status") @db.VarChar(50)
   metadata          Json?
 
   job               Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
   emailCandidates   EmailCandidate[]
   evidence          Evidence[]
 
-  @@index([jobId])
-  @@index([contractorInputRowId])
+  @@index([jobId], map: "idx_entity_job_id")
+  @@index([contractorInputRowId], map: "idx_entity_contractor_input_row_id")
+  @@map("entities")
 }
 
 model EmailCandidate {
-  id                String   @id @default(uuid())
-  entityId          String
-  email             String
-  source            String
-  sourceUrl         String?
+  id                String   @id @default(uuid()) @db.Uuid
+  entityId          String   @map("entity_id") @db.Uuid
+  email             String   @db.VarChar(255)
+  source            String   @db.VarChar(255)
+  sourceUrl         String?  @map("source_url") @db.VarChar(255)
   confidence        Int      @default(0)
-  rationale         String?
-  validationSignals Json?
+  rationale         String?  @db.Text
+  validationSignals Json?    @map("validation_signals")
   validated         Boolean  @default(false)
-  createdAt         DateTime @default(now())
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   entity            Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
   evidence          Evidence[]
 
-  @@index([entityId])
-  @@index([email])
+  @@index([entityId], map: "idx_email_candidate_entity_id")
+  @@index([email], map: "idx_email_candidate_email")
+  @@map("email_candidates")
 }
 
 model Evidence {
-  id                String   @id @default(uuid())
-  entityId          String?
-  emailCandidateId  String?
-  type              String
-  source            String
-  content           String?
-  url               String?
-  timestamp         DateTime @default(now())
+  id                String   @id @default(uuid()) @db.Uuid
+  entityId          String?  @map("entity_id") @db.Uuid
+  emailCandidateId  String?  @map("email_candidate_id") @db.Uuid
+  type              String   @db.VarChar(50)
+  source            String   @db.VarChar(255)
+  content           String?  @db.Text
+  url               String?  @db.VarChar(255)
+  timestamp         DateTime @default(now()) @db.Timestamptz(6)
 
   entity            Entity?  @relation(fields: [entityId], references: [id], onDelete: Cascade)
   emailCandidate    EmailCandidate? @relation(fields: [emailCandidateId], references: [id], onDelete: Cascade)
 
-  @@index([entityId])
-  @@index([emailCandidateId])
+  @@index([entityId], map: "idx_evidence_entity_id")
+  @@index([emailCandidateId], map: "idx_evidence_email_candidate_id")
+  @@map("evidence")
 }
 
 model VisitedSiteLog {
-  id                String   @id @default(uuid())
-  jobId             String
-  entityId          String?
-  url               String
-  startedAt         DateTime @default(now())
-  completedAt       DateTime?
+  id                String   @id @default(uuid()) @db.Uuid
+  jobId             String   @map("job_id") @db.Uuid
+  entityId          String?  @map("entity_id") @db.Uuid
+  url               String   @db.VarChar(255)
+  startedAt         DateTime @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt       DateTime? @map("completed_at") @db.Timestamptz(6)
   success           Boolean  @default(false)
-  error             String?
-  robotsTxtRespected Boolean @default(true)
+  error             String?  @db.Text
+  robotsTxtRespected Boolean @default(true) @map("robots_txt_respected")
 
   job               Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  @@index([jobId])
-  @@index([entityId])
+  @@index([jobId], map: "idx_visited_site_log_job_id")
+  @@index([entityId], map: "idx_visited_site_log_entity_id")
+  @@map("visited_site_logs")
 }
 
 model CostLineItem {
-  id                String   @id @default(uuid())
-  jobId             String
-  entityId          String?
-  category          String
-  description       String
-  unitCost          Decimal  @db.Decimal(15, 2)
+  id                String   @id @default(uuid()) @db.Uuid
+  jobId             String   @map("job_id") @db.Uuid
+  entityId          String?  @map("entity_id") @db.Uuid
+  category          String   @db.VarChar(100)
+  description       String   @db.VarChar(255)
+  unitCost          Decimal  @map("unit_cost") @db.Decimal(15, 2)
   quantity          Int      @default(1)
-  totalCost         Decimal  @db.Decimal(15, 2)
-  currency          String   @default("USD")
-  timestamp         DateTime @default(now())
+  totalCost         Decimal  @map("total_cost") @db.Decimal(15, 2)
+  currency          String   @default("USD") @db.VarChar(10)
+  timestamp         DateTime @default(now()) @db.Timestamptz(6)
 
   job               Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  @@index([jobId])
-  @@index([entityId])
+  @@index([jobId], map: "idx_cost_line_item_job_id")
+  @@index([entityId], map: "idx_cost_line_item_entity_id")
+  @@map("cost_line_items")
+}
+
+// Knowledge Base Tables
+
+model ContractorKnowledge {
+  rocNumber         String   @id @map("roc_number") @db.VarChar(255)
+  contractorName    String   @map("contractor_name") @db.VarChar(255)
+  businessName      String?  @map("business_name") @db.VarChar(255)
+  website           String?  @db.VarChar(255)
+  address           String?  @db.Text
+  phone             String?  @db.VarChar(50)
+  classification    String?  @db.VarChar(255)
+  licenseStatus     String?  @map("license_status") @db.VarChar(50)
+  source            String?  @db.VarChar(255)
+  lastVerified      DateTime? @map("last_verified") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  emailKnowledge    EmailKnowledge[]
+
+  @@map("contractor_knowledge")
+}
+
+model EmailKnowledge {
+  email             String   @db.VarChar(255)
+  rocNumber         String   @map("roc_number") @db.VarChar(255)
+  contractorName    String   @map("contractor_name") @db.VarChar(255)
+  confidence        Int
+  sources           Json?
+  validated         Boolean  @default(false)
+  lastVerified      DateTime? @map("last_verified") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  contractor        ContractorKnowledge @relation(fields: [rocNumber], references: [rocNumber], onDelete: Cascade)
+
+  @@id([email, rocNumber])
+  @@map("email_knowledge")
+}
+
+model SourceKnowledge {
+  sourceName        String   @id @map("source_name") @db.VarChar(255)
+  successRate       Decimal? @map("success_rate") @db.Decimal(5, 2) @default(0)
+  lastAccessed      DateTime? @map("last_accessed") @db.Timestamptz(6)
+  totalQueries      Int      @default(0) @map("total_queries")
+  successfulQueries Int      @default(0) @map("successful_queries")
+  metadata          Json?
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("source_knowledge")
 }

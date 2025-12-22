@@ -16,9 +16,10 @@
     "add-created-by-to-versions": "tsx src/db/add_created_by_to_versions.ts",
     "delete-amex-versions": "tsx src/db/delete_amex_versions.ts",
     "create-knowledge-tables": "tsx src/db/create_knowledge_tables.ts",
-    "prisma:generate": "tsx -r src/config/buildDatabaseUrl.ts -e \"npx prisma generate\"",
-    "prisma:push": "tsx -r src/config/buildDatabaseUrl.ts -e \"npx prisma db push\"",
-    "prisma:migrate": "tsx -r src/config/buildDatabaseUrl.ts -e \"npx prisma migrate dev\"",
+    "prisma:generate": "tsx scripts/prisma-with-env.ts generate",
+    "prisma:push": "tsx scripts/prisma-with-env.ts db push",
+    "prisma:pull": "tsx scripts/prisma-with-env.ts db pull",
+    "prisma:migrate": "tsx scripts/prisma-with-env.ts migrate dev",
     "seed": "tsx src/db/seed.ts"
   },
   "dependencies": {

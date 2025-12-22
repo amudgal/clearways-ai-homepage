@@ -6,6 +6,8 @@
 // This ensures DATABASE_URL is set in process.env
 import './src/config/buildDatabaseUrl';
 
+import dotenv from 'dotenv';
+import { resolve } from 'path';
 import { defineConfig } from 'prisma/config';
 
 // Explicitly load .env file - try multiple possible locations
