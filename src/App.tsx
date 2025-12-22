@@ -17,6 +17,8 @@ import AdminPricing from './pages/AdminPricing';
 import AdminPricingTable from './pages/AdminPricingTable';
 import AdminTenants from './pages/AdminTenants';
 import AdminAnalyses from './pages/AdminAnalyses';
+import AgentMarketplace from './pages/AgentMarketplace';
+import AgentDetail from './pages/AgentDetail';
 import { useAuth } from './contexts/AuthContext';
 
 // Protected Route Component
@@ -42,6 +44,8 @@ function AppRoutes() {
       <Route path="/services" element={<Services />} />
       <Route path="/contact" element={<Contact />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/agents" element={<AgentMarketplace />} />
+      <Route path="/agents/:id" element={<AgentDetail />} />
       <Route
         path="/dashboard"
         element={
