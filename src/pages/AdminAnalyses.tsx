@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Building2, User, Calendar, Save, AlertCircle, Search } from 'lucide-react';
+import { FileText, Building2, User, Calendar, Save, AlertCircle, Search, Edit2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getApiBaseUrl } from '../utils/apiConfig';
 
@@ -15,6 +15,7 @@ interface Analysis {
   id: string;
   title: string | null;
   status: 'LIVE' | 'SAVED' | 'LOCKED';
+  analysis_type?: 'TCO' | 'TIMELINE';
   tenant_id: string;
   tenant_name: string;
   tenant_domain: string;
@@ -42,6 +43,9 @@ export default function AdminAnalyses() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingAnalysis, setEditingAnalysis] = useState<Analysis | null>(null);
   const [selectedTenantId, setSelectedTenantId] = useState('');
+  const [editingTitle, setEditingTitle] = useState<Analysis | null>(null);
+  const [newTitle, setNewTitle] = useState('');
+  const [deletingAnalysis, setDeletingAnalysis] = useState<Analysis | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -136,6 +140,57 @@ export default function AdminAnalyses() {
     }
   };
 
+  const handleEditTitle = async () => {
+    if (!editingTitle || !newTitle.trim()) {
+      toast.error('Please enter a title');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/analyses/${editingTitle.id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ title: newTitle.trim() }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update analysis title');
+      }
+
+      toast.success('Analysis title updated successfully');
+      setEditingTitle(null);
+      setNewTitle('');
+      loadAnalyses();
+    } catch (error) {
+      console.error('Update title error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update analysis title');
+    }
+  };
+
+  const handleDeleteAnalysis = async () => {
+    if (!deletingAnalysis) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/analyses/${deletingAnalysis.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete analysis');
+      }
+
+      toast.success('Analysis deleted successfully');
+      setDeletingAnalysis(null);
+      loadAnalyses();
+    } catch (error) {
+      console.error('Delete analysis error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete analysis');
+    }
+  };
+
   const filteredAnalyses = analyses.filter((analysis) => {
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -173,6 +228,105 @@ export default function AdminAnalyses() {
             />
           </div>
         </div>
+
+        {/* Edit Title Modal */}
+        {editingTitle && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Edit Analysis Title</h3>
+                <button
+                  onClick={() => {
+                    setEditingTitle(null);
+                    setNewTitle('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Analysis Title *
+                </label>
+                <input
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#17A2B8]"
+                  placeholder="Enter analysis title"
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setEditingTitle(null);
+                    setNewTitle('');
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditTitle}
+                  className="px-4 py-2 bg-[#17A2B8] text-white rounded-md hover:bg-[#138C9E] transition-colors flex items-center gap-2"
+                >
+                  <Save size={16} />
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {deletingAnalysis && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setDeletingAnalysis(null)}>
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-red-600">Delete Analysis</h3>
+                <button
+                  onClick={() => setDeletingAnalysis(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                  type="button"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 mb-2">
+                  Are you sure you want to delete this analysis? This action cannot be undone.
+                </p>
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <p className="text-sm font-medium text-red-800">
+                    <strong>Analysis:</strong> {deletingAnalysis.title || 'Untitled Analysis'}
+                  </p>
+                  <p className="text-xs text-red-600 mt-1">
+                    Client: {deletingAnalysis.tenant_name} (@{deletingAnalysis.tenant_domain})
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setDeletingAnalysis(null)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteAnalysis}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center gap-2 font-medium shadow-sm"
+                  type="button"
+                >
+                  <Trash2 size={16} />
+                  Confirm Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Reassign Modal */}
         {editingAnalysis && (
@@ -280,11 +434,18 @@ export default function AdminAnalyses() {
                     return (
                       <tr key={analysis.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <FileText className="h-5 w-5 text-gray-400 mr-2" />
-                            <span className="text-sm font-medium text-gray-900">
-                              {analysis.title || 'Untitled Analysis'}
-                            </span>
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-gray-400" />
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                {analysis.title || 'Untitled Analysis'}
+                              </span>
+                              {analysis.analysis_type && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
+                                  {analysis.analysis_type === 'TCO' ? 'TCO' : 'Timeline'}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -318,15 +479,37 @@ export default function AdminAnalyses() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => {
-                              setEditingAnalysis(analysis);
-                              setSelectedTenantId(analysis.tenant_id);
-                            }}
-                            className="text-[#17A2B8] hover:text-[#138C9E]"
-                          >
-                            Reassign
-                          </button>
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              onClick={() => {
+                                setEditingTitle(analysis);
+                                setNewTitle(analysis.title || '');
+                              }}
+                              className="text-[#17A2B8] hover:text-[#138C9E] flex items-center gap-1"
+                              title="Edit Title"
+                            >
+                              <Edit2 size={16} />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingAnalysis(analysis);
+                                setSelectedTenantId(analysis.tenant_id);
+                              }}
+                              className="text-blue-600 hover:text-blue-700"
+                              title="Reassign to Different Client"
+                            >
+                              Reassign
+                            </button>
+                            <button
+                              onClick={() => setDeletingAnalysis(analysis)}
+                              className="text-red-600 hover:text-red-700 flex items-center gap-1"
+                              title="Delete Analysis"
+                            >
+                              <Trash2 size={16} />
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -339,12 +522,14 @@ export default function AdminAnalyses() {
 
         {/* Info Box */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="text-gray-900 mb-2 font-semibold">About Analysis Reassignment</h3>
+          <h3 className="text-gray-900 mb-2 font-semibold">Admin Analysis Management</h3>
           <ul className="text-gray-600 text-sm space-y-1 list-disc list-inside">
-            <li>Reassigning an analysis moves it to a different client/tenant</li>
-            <li>Users from the new tenant will be able to view and edit the analysis</li>
-            <li>Users from the old tenant will lose access to the analysis</li>
-            <li>All reassignments are logged in the audit log</li>
+            <li><strong>Edit:</strong> Rename analysis titles for any analysis</li>
+            <li><strong>Reassign:</strong> Move analyses to different clients/tenants</li>
+            <li><strong>Delete:</strong> Permanently remove analyses (cannot be undone)</li>
+            <li>All admin actions are logged in the audit log</li>
+            <li>Users from the new tenant will gain access after reassignment</li>
+            <li>Users from the old tenant will lose access after reassignment</li>
           </ul>
         </div>
       </div>

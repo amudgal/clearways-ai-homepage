@@ -2,11 +2,11 @@
 // OTP-based passwordless authentication
 
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import { pool } from '../config/database';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/database';
 import { sendOTPEmail, isEmailConfigured } from '../services/emailService';
-import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 
@@ -211,46 +211,7 @@ router.post('/otp/verify', async (req, res) => {
   }
 });
 
-// Get current user
-router.get('/me', async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const token = authHeader.substring(7);
-    const secret = process.env.JWT_SECRET;
-    
-    if (!secret) {
-      throw new Error('JWT_SECRET not configured');
-    }
-
-    const decoded = jwt.verify(token, secret) as { userId: string };
-    
-    const result = await pool.query(
-      `SELECT id, email, username, domain, tenant_id, role, created_at, last_login_at
-       FROM site_users 
-       WHERE id = $1`,
-      [decoded.userId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.json({ user: result.rows[0] });
-  } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    console.error('Get user error:', error);
-    res.status(500).json({ error: 'Failed to get user' });
-  }
-});
-
-// Credential-based login (username/password)
+// Credentials login (username/password)
 router.post('/credentials/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -259,11 +220,13 @@ router.post('/credentials/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password required' });
     }
 
-    // Find user by username
+    // Find user by username (email) and password_hash
     const userResult = await pool.query(
-      `SELECT id, email, username, password_hash, tenant_id, role, domain
-       FROM site_users 
-       WHERE username = $1 AND password_hash IS NOT NULL`,
+      `SELECT u.id, u.email, u.domain, u.tenant_id, u.role, u.password_hash, u.created_at, u.last_login_at,
+              t.name as tenant_name, t.domain as tenant_domain
+       FROM site_users u
+       LEFT JOIN site_tenants t ON u.tenant_id = t.id
+       WHERE u.username = $1 OR u.email = $1`,
       [username]
     );
 
@@ -272,6 +235,11 @@ router.post('/credentials/login', async (req, res) => {
     }
 
     const user = userResult.rows[0];
+
+    // Check if user has a password_hash (credential user)
+    if (!user.password_hash) {
+      return res.status(401).json({ error: 'This account does not support password login. Please use OTP login.' });
+    }
 
     // Verify password
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
@@ -300,25 +268,63 @@ router.post('/credentials/login', async (req, res) => {
     await pool.query(
       `INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, metadata)
        VALUES ($1, $2, $3, $4, $5)`,
-      [user.id, user.tenant_id, 'LOGIN', 'user', JSON.stringify({ username, method: 'CREDENTIALS' })]
+      [user.id, user.tenant_id, 'LOGIN', 'user', JSON.stringify({ email: user.email, method: 'CREDENTIALS', username })]
     );
+
+    // Return user without password_hash
+    const { password_hash, ...userWithoutPassword } = user;
 
     res.json({
       success: true,
       user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        tenant_id: user.tenant_id,
-        role: user.role,
-        domain: user.domain,
+        ...userWithoutPassword,
+        username: user.email, // Include username in response
       },
       token,
       message: 'Authentication successful',
     });
   } catch (error) {
-    console.error('Credential login error:', error);
+    console.error('Credentials login error:', error);
     res.status(500).json({ error: 'Authentication failed' });
+  }
+});
+
+// Get current user
+router.get('/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const token = authHeader.substring(7);
+    const secret = process.env.JWT_SECRET;
+    
+    if (!secret) {
+      throw new Error('JWT_SECRET not configured');
+    }
+
+    const decoded = jwt.verify(token, secret) as { userId: string };
+    
+    const result = await pool.query(
+      `SELECT id, email, domain, tenant_id, role, created_at, last_login_at, username
+       FROM site_users 
+       WHERE id = $1`,
+      [decoded.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ user: result.rows[0] });
+  } catch (error) {
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Failed to get user' });
   }
 });
 

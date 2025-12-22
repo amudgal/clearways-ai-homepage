@@ -88,9 +88,15 @@ app.use((err, req, res, next) => {
     });
 });
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+    // Test database connection on startup
+    const dbConnected = await (0, database_1.testConnection)();
+    if (!dbConnected) {
+        console.warn('⚠️  Warning: Database connection test failed. The server will continue, but database operations may fail.');
+        console.warn('⚠️  Please check your database configuration and network connectivity.');
+    }
 });
 //# sourceMappingURL=index.js.map

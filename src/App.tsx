@@ -12,6 +12,7 @@ import Accessibility from './pages/Accessibility';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import AnalysisForm from './pages/AnalysisForm';
+import AnalysisTypeSelection from './pages/AnalysisTypeSelection';
 import AdminPricing from './pages/AdminPricing';
 import AdminPricingTable from './pages/AdminPricingTable';
 import AdminTenants from './pages/AdminTenants';
@@ -46,6 +47,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analysis/new"
+        element={
+          <ProtectedRoute>
+            <AnalysisTypeSelection />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analysis/create"
+        element={
+          <ProtectedRoute>
+            <AnalysisForm />
           </ProtectedRoute>
         }
       />

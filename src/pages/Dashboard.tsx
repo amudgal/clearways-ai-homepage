@@ -11,6 +11,7 @@ interface Analysis {
   id: string;
   title: string | null;
   status: 'LIVE' | 'SAVED' | 'LOCKED';
+  analysis_type?: 'TCO' | 'TIMELINE';
   created_at: string;
   saved_at: string | null;
   updated_at: string;
@@ -138,11 +139,12 @@ export default function Dashboard() {
                 });
 
                 const statusConfig = {
+                  LIVE: { label: 'Draft', className: 'bg-yellow-100 text-yellow-800' },
                   SAVED: { label: 'Saved', className: 'bg-blue-100 text-blue-800' },
                   LOCKED: { label: 'Locked', className: 'bg-green-100 text-green-800' },
                 };
 
-                const status = statusConfig[analysis.status as 'SAVED' | 'LOCKED'] || statusConfig.SAVED;
+                const status = statusConfig[analysis.status as 'LIVE' | 'SAVED' | 'LOCKED'] || statusConfig.SAVED;
 
                 return (
                   <Link
@@ -158,9 +160,16 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-gray-900 mb-1">
-                            {analysis.title || 'Untitled Analysis'}
-                          </h3>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-gray-900">
+                              {analysis.title || 'Untitled Analysis'}
+                            </h3>
+                            {analysis.analysis_type && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
+                                {analysis.analysis_type === 'TCO' ? 'TCO' : 'Timeline'}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-4 text-sm text-gray-500">
                             <div className="flex items-center gap-1">
                               <Calendar size={14} />
