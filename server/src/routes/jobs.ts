@@ -36,6 +36,21 @@ class SimpleJobQueue {
   }
 
   async getJobStatus(jobId: string) {
+    // First get the job with minimal data to check if it exists
+    const job = await prisma.job.findUnique({
+      where: { id: jobId },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (!job) {
+      return null;
+    }
+
+    // Only fetch relations if job exists and is not in a terminal state
+    // This prevents unnecessary queries for empty jobs
     return await prisma.job.findUnique({
       where: { id: jobId },
       include: {
@@ -44,14 +59,22 @@ class SimpleJobQueue {
           include: {
             emailCandidates: {
               include: {
-                evidence: true,
+                evidence: {
+                  take: 10, // Limit evidence to prevent excessive data
+                },
               },
             },
-            evidence: true,
+            evidence: {
+              take: 10, // Limit evidence to prevent excessive data
+            },
           },
         },
-        visitedSites: true,
-        costLineItems: true,
+        visitedSites: {
+          take: 100, // Limit visited sites
+        },
+        costLineItems: {
+          take: 100, // Limit cost items
+        },
       },
     });
   }
@@ -64,6 +87,57 @@ class SimpleJobQueue {
 }
 
 const jobQueue = new SimpleJobQueue();
+
+// Helper function to transform job data
+function transformJobData(job: any) {
+  return {
+    id: job.id,
+    status: job.status,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    startedAt: job.startedAt,
+    completedAt: job.completedAt,
+    totalCost: job.totalCost,
+    preferences: job.preferences,
+    contractorRows: job.contractorRows.map((row: any) => ({
+      id: row.id,
+      rocNumber: row.rocNumber,
+      contractorName: row.contractorName,
+      licenseStatus: row.licenseStatus,
+      classification: row.classification,
+      city: row.city,
+      phone: row.phone,
+      website: row.website,
+      rowIndex: row.rowIndex,
+      processed: row.processed,
+    })),
+    entities: job.entities.map((entity: any) => ({
+      id: entity.id,
+      contractorInputRowId: entity.contractorInputRowId,
+      rocNumber: entity.rocNumber,
+      contractorName: entity.contractorName,
+      businessName: entity.businessName,
+      officialWebsite: entity.officialWebsite,
+      address: entity.address,
+      phone: entity.phone,
+      classification: entity.classification,
+      licenseStatus: entity.licenseStatus,
+      emailCandidates: entity.emailCandidates.map((candidate: any) => ({
+        id: candidate.id,
+        email: candidate.email,
+        source: candidate.source,
+        sourceUrl: candidate.sourceUrl,
+        confidence: candidate.confidence,
+        rationale: candidate.rationale,
+        validationSignals: candidate.validationSignals,
+        evidence: candidate.evidence || [],
+      })),
+    })),
+    visitedSites: job.visitedSites || [],
+    costLineItems: job.costLineItems || [],
+    processedCount: job.contractorRows.filter((row: any) => row.processed).length,
+  };
+}
 
 // Upload contractor data and create job
 router.post('/upload', authenticate, async (req: AuthRequest, res) => {
@@ -128,54 +202,11 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
+    // Cache the job data
+    jobStatusCache.set(id, { data: job, timestamp: Date.now() });
+
     // Transform job data for frontend
-    const transformedJob = {
-      id: job.id,
-      status: job.status,
-      createdAt: job.createdAt,
-      updatedAt: job.updatedAt,
-      startedAt: job.startedAt,
-      completedAt: job.completedAt,
-      totalCost: job.totalCost,
-      preferences: job.preferences,
-      contractorRows: job.contractorRows.map((row: any) => ({
-        id: row.id,
-        rocNumber: row.rocNumber,
-        contractorName: row.contractorName,
-        licenseStatus: row.licenseStatus,
-        classification: row.classification,
-        city: row.city,
-        phone: row.phone,
-        website: row.website,
-        rowIndex: row.rowIndex,
-        processed: row.processed,
-      })),
-      entities: job.entities.map((entity: any) => ({
-        id: entity.id,
-        contractorInputRowId: entity.contractorInputRowId,
-        rocNumber: entity.rocNumber,
-        contractorName: entity.contractorName,
-        businessName: entity.businessName,
-        officialWebsite: entity.officialWebsite,
-        address: entity.address,
-        phone: entity.phone,
-        classification: entity.classification,
-        licenseStatus: entity.licenseStatus,
-        emailCandidates: entity.emailCandidates.map((candidate: any) => ({
-          id: candidate.id,
-          email: candidate.email,
-          source: candidate.source,
-          sourceUrl: candidate.sourceUrl,
-          confidence: candidate.confidence,
-          rationale: candidate.rationale,
-          validationSignals: candidate.validationSignals,
-          evidence: candidate.evidence || [],
-        })),
-      })),
-      visitedSites: job.visitedSites || [],
-      costLineItems: job.costLineItems || [],
-      processedCount: job.contractorRows.filter((row: any) => row.processed).length,
-    };
+    const transformedJob = transformJobData(job);
 
     res.json(transformedJob);
   } catch (error) {
