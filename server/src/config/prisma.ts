@@ -6,12 +6,15 @@ import { PrismaClient } from '../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
-// Get DATABASE_URL from environment
-// This should point to your existing PostgreSQL database
-const databaseUrl = process.env.DATABASE_URL;
+// Get DATABASE_URL from environment or construct from existing DB_* variables
+// Uses the same database configuration as database.ts (DB_HOST, DB_NAME, DB_USER, DB_PASSWORD)
+const databaseUrl = process.env.DATABASE_URL || 
+  (process.env.DB_HOST && process.env.DB_NAME && process.env.DB_USER
+    ? `postgresql://${process.env.DB_USER}:${encodeURIComponent(process.env.DB_PASSWORD || '')}@${process.env.DB_HOST}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME}${process.env.DB_SSL === 'true' ? '?sslmode=require' : ''}`
+    : null);
 
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL environment variable is required. Please set it in your .env file to point to your existing PostgreSQL database.');
+  throw new Error('Database configuration required. Please set either DATABASE_URL or DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD in your .env file to point to your existing PostgreSQL database.');
 }
 
 // Create PostgreSQL connection pool
