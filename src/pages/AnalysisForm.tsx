@@ -1269,7 +1269,7 @@ export default function AnalysisForm() {
       });
     
     // Add any extra rows that were added but aren't in defaults
-    const extraRows = existing.filter(r => !defaultRows.find(dr => dr.id === r.id));
+    const extraRows = Array.isArray(existing) ? existing.filter(r => !defaultRows.find(dr => dr.id === r.id)) : [];
     return [...merged, ...extraRows];
   };
 
