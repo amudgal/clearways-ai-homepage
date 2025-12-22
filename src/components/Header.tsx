@@ -1,22 +1,22 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, LogIn, LogOut, Settings, FileText } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { Menu, X, LogIn, LogOut } from 'lucide-react';
 import logo from 'figma:asset/bc56b2cd1a0b77abaa55ba2f68f90ef6c8e0ef44.png';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAuthenticated, logout } = useAuth();
+  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
   const isHomePage = location.pathname === '/';
   const isLoginPage = location.pathname === '/login';
 
   const isActive = (path: string) => location.pathname === path;
 
   const handleLogout = () => {
-    logout();
+    localStorage.removeItem('isLoggedIn');
     navigate('/');
+    window.location.reload(); // Refresh to update UI
   };
 
   return (
@@ -49,7 +49,17 @@ export default function Header() {
             >
               About Us
             </Link>
-            {/* Show Login on home page, Logout on other pages, nothing on login page */}
+            <Link
+              to="/agents"
+              className={`transition-colors ${
+                isActive('/agents') || location.pathname.startsWith('/agents')
+                  ? 'text-[#17A2B8]'
+                  : 'text-gray-700 hover:text-[#17A2B8]'
+              }`}
+            >
+              AI Agents
+            </Link>
+            {/* Show Login only on home page, Logout on other pages, nothing on login page */}
             {!isLoginPage && (
               <>
                 {isHomePage ? (
@@ -61,45 +71,13 @@ export default function Header() {
                     Login
                   </Link>
                 ) : (
-                  <>
-                    {user?.role === 'ADMIN' && (
-                      <div className="flex items-center gap-4">
-                        <Link
-                          to="/dashboard"
-                          className="transition-colors flex items-center gap-2 text-gray-700 hover:text-[#17A2B8]"
-                        >
-                          <FileText size={18} />
-                          Analyses
-                        </Link>
-                        <Link
-                          to="/admin/analyses"
-                          className="transition-colors text-gray-700 hover:text-[#17A2B8]"
-                        >
-                          Manage Analyses
-                        </Link>
-                        <Link
-                          to="/admin/tenants"
-                          className="transition-colors text-gray-700 hover:text-[#17A2B8]"
-                        >
-                          Tenants
-                        </Link>
-                        <Link
-                          to="/admin/pricing/table"
-                          className="transition-colors flex items-center gap-2 text-gray-700 hover:text-[#17A2B8]"
-                        >
-                          <Settings size={18} />
-                          Pricing
-                        </Link>
-                      </div>
-                    )}
-                    <button
-                      onClick={handleLogout}
-                      className="transition-colors flex items-center gap-2 text-gray-700 hover:text-[#17A2B8]"
-                    >
-                      <LogOut size={18} />
-                      Logout
-                    </button>
-                  </>
+                  <button
+                    onClick={handleLogout}
+                    className="transition-colors flex items-center gap-2 text-gray-700 hover:text-[#17A2B8]"
+                  >
+                    <LogOut size={18} />
+                    Logout
+                  </button>
                 )}
               </>
             )}
@@ -142,7 +120,18 @@ export default function Header() {
               >
                 About Us
               </Link>
-              {/* Show Login on home page, Logout on other pages, nothing on login page */}
+              <Link
+                to="/agents"
+                onClick={() => setIsMenuOpen(false)}
+                className={`${
+                  isActive('/agents') || location.pathname.startsWith('/agents')
+                    ? 'text-[#17A2B8]'
+                    : 'text-gray-700'
+                }`}
+              >
+                AI Agents
+              </Link>
+              {/* Show Login only on home page, Logout on other pages, nothing on login page */}
               {!isLoginPage && (
                 <>
                   {isHomePage ? (
@@ -155,52 +144,16 @@ export default function Header() {
                       Login
                     </Link>
                   ) : (
-                    <>
-                      {user?.role === 'ADMIN' && (
-                        <>
-                          <Link
-                            to="/dashboard"
-                            onClick={() => setIsMenuOpen(false)}
-                            className="flex items-center gap-2 text-gray-700"
-                          >
-                            <FileText size={18} />
-                            Analyses
-                          </Link>
-                          <Link
-                            to="/admin/analyses"
-                            onClick={() => setIsMenuOpen(false)}
-                            className="text-gray-700"
-                          >
-                            Manage Analyses
-                          </Link>
-                          <Link
-                            to="/admin/tenants"
-                            onClick={() => setIsMenuOpen(false)}
-                            className="text-gray-700"
-                          >
-                            Tenants
-                          </Link>
-                          <Link
-                            to="/admin/pricing/table"
-                            onClick={() => setIsMenuOpen(false)}
-                            className="flex items-center gap-2 text-gray-700"
-                          >
-                            <Settings size={18} />
-                            Pricing
-                          </Link>
-                        </>
-                      )}
-                      <button
-                        onClick={() => {
-                          handleLogout();
-                          setIsMenuOpen(false);
-                        }}
-                        className="flex items-center gap-2 text-gray-700"
-                      >
-                        <LogOut size={18} />
-                        Logout
-                      </button>
-                    </>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsMenuOpen(false);
+                      }}
+                      className="flex items-center gap-2 text-gray-700"
+                    >
+                      <LogOut size={18} />
+                      Logout
+                    </button>
                   )}
                 </>
               )}
