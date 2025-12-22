@@ -200,6 +200,55 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
       summary: `Executing ${strategy.approach} strategy`,
     });
 
+    // Priority 0: Always use headless browser to search ROC website if ROC number is available
+    if (contractorEntity.rocNumber) {
+      this.emitEvent({
+        ts: new Date().toISOString(),
+        level: 'info',
+        agent: 'ReasoningOrchestrator',
+        summary: `Using headless browser to search ROC website for license ${contractorEntity.rocNumber}`,
+      });
+
+      // Create ROC-specific search query
+      const rocSearchQueries: SearchQuery[] = [{
+        query: contractorEntity.rocNumber,
+        source: 'roc-website',
+        expectedResults: 1,
+      }];
+
+      const rocBrowserSearch = new BrowserSearchAgent(this.context, this.eventEmitter, rocSearchQueries);
+      const rocSearchResult = await rocBrowserSearch.execute();
+
+      if (rocSearchResult.success && rocSearchResult.data?.results) {
+        const rocResults = rocSearchResult.data.results as any[];
+        this.emitEvent({
+          ts: new Date().toISOString(),
+          level: 'success',
+          agent: 'BrowserSearch',
+          summary: `ROC search completed via headless browser. Found ${rocResults.length} result(s)`,
+        });
+
+        // Extract any emails from ROC search results
+        for (const result of rocResults) {
+          if (result.snippet || result.title) {
+            const extractedEmails = this.extractEmailsFromText(
+              (result.snippet || '') + ' ' + (result.title || '')
+            );
+            emails.push(...extractedEmails);
+          }
+        }
+
+        totalCost += rocSearchResult.cost || 0;
+      } else {
+        this.emitEvent({
+          ts: new Date().toISOString(),
+          level: 'warning',
+          agent: 'BrowserSearch',
+          summary: `ROC search via headless browser did not return results`,
+        });
+      }
+    }
+
     // Priority 1: Official website (if available and strategy allows)
     if (contractorEntity.officialWebsite && 
         (strategy.approach === 'roc-first' || strategy.approach === 'official-only' || strategy.approach === 'hybrid')) {
