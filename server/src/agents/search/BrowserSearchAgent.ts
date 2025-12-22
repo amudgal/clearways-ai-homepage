@@ -23,9 +23,11 @@ export class BrowserSearchAgent extends BaseAgent {
   private browser: Browser | null = null;
   private maxResults: number = 10;
   private timeout: number = 30000; // 30 seconds
+  private customQueries?: SearchQuery[];
 
-  constructor(context: AgentContext, eventEmitter: EventEmitter) {
+  constructor(context: AgentContext, eventEmitter: EventEmitter, customQueries?: SearchQuery[]) {
     super(context, eventEmitter);
+    this.customQueries = customQueries;
   }
 
   async execute(): Promise<AgentResult> {
@@ -33,8 +35,8 @@ export class BrowserSearchAgent extends BaseAgent {
       // Initialize browser
       await this.initializeBrowser();
 
-      // Get search queries from context or generate them
-      const searchQueries = this.getSearchQueries();
+      // Get search queries from custom queries, context, or generate them
+      const searchQueries = this.customQueries || this.getSearchQueries();
 
       if (searchQueries.length === 0) {
         return {

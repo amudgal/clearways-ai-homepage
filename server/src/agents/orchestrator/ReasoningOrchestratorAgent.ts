@@ -5,7 +5,7 @@ import { BaseAgent } from '../base/BaseAgent';
 import { AgentResult, AgentContext, Entity, EmailCandidate, ExplanationEvent } from '../types';
 import { LLMReasoningService, DiscoveryStrategy } from '../../services/llmService';
 import { RocLookupAgent } from '../roc/RocLookupAgent';
-import { BrowserSearchAgent } from '../search/BrowserSearchAgent';
+import { BrowserSearchAgent, SearchQuery } from '../search/BrowserSearchAgent';
 import { KnowledgeService } from '../../services/knowledgeService';
 import { prisma } from '../../config/prisma';
 // import { ScrapeExtractionAgent } from '../scrape/ScrapeExtractionAgent';
@@ -207,10 +207,18 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
       emails.push(...officialEmails);
     }
 
-    // Priority 2: Web search (if strategy allows)
+    // Priority 2: Web search using headless browser automation (if strategy allows)
     if (strategy.approach === 'search-first' || strategy.approach === 'hybrid') {
+      // Use BrowserSearchAgent for headless browser automation
+      this.emitEvent({
+        ts: new Date().toISOString(),
+        level: 'info',
+        agent: 'ReasoningOrchestrator',
+        summary: `Using headless browser automation to perform searches`,
+      });
+
       // Generate queries using LLM based on ROC data
-      const queries = this.useLLM
+      const queryStrings = this.useLLM
         ? await this.llmService.generateSearchQueries({
             contractorName: contractorEntity.contractorName,
             rocNumber: contractorEntity.rocNumber,
@@ -220,12 +228,55 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
             address: contractorEntity.address,
             phone: contractorEntity.phone,
           })
-        : strategy.searchQueries;
+        : strategy.searchQueries || [];
 
-      // Execute search and scrape
-      for (const query of queries.slice(0, 5)) {
-        const searchEmails = await this.performWebSearch(query, strategy.maxUrls);
-        emails.push(...searchEmails);
+      // Convert query strings to SearchQuery objects for BrowserSearchAgent
+      const searchQueries = queryStrings.map((query) => {
+        // Determine source based on query content or use default
+        let source: 'roc-website' | 'google' | 'bing' | 'linkedin' | 'business-directory' = 'google';
+        
+        if (query.toLowerCase().includes('roc') || query.toLowerCase().includes('license')) {
+          source = 'roc-website';
+        } else if (query.toLowerCase().includes('linkedin')) {
+          source = 'linkedin';
+        } else if (query.toLowerCase().includes('directory')) {
+          source = 'business-directory';
+        }
+
+        return {
+          query,
+          source,
+          expectedResults: Math.min(5, strategy.maxUrls || 10),
+        };
+      });
+
+      // Create BrowserSearchAgent with custom queries
+      const browserSearch = new BrowserSearchAgent(this.context, this.eventEmitter, searchQueries);
+
+      // Perform browser-based searches
+      const searchResult = await browserSearch.execute();
+      
+      if (searchResult.success && searchResult.data?.results) {
+        const searchResults = searchResult.data.results as any[];
+        
+        this.emitEvent({
+          ts: new Date().toISOString(),
+          level: 'success',
+          agent: 'BrowserSearch',
+          summary: `Found ${searchResults.length} search results via headless browser`,
+        });
+
+        // Extract emails from search result snippets and titles
+        for (const result of searchResults.slice(0, strategy.maxUrls || 10)) {
+          if (result.snippet || result.title) {
+            const extractedEmails = this.extractEmailsFromText(
+              (result.snippet || '') + ' ' + (result.title || '')
+            );
+            emails.push(...extractedEmails);
+          }
+        }
+
+        totalCost += searchResult.cost || 0;
       }
     }
 
