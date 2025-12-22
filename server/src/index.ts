@@ -5,7 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import { pool } from './config/database';
+import { pool, testConnection } from './config/database';
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -91,9 +91,16 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+  
+  // Test database connection on startup
+  const dbConnected = await testConnection();
+  if (!dbConnected) {
+    console.warn('⚠️  Warning: Database connection test failed. The server will continue, but database operations may fail.');
+    console.warn('⚠️  Please check your database configuration and network connectivity.');
+  }
 });
 

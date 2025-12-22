@@ -8,6 +8,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const database_1 = require("../config/database");
 const auth_1 = require("../middleware/auth");
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const router = express_1.default.Router();
 // All routes require admin access
 router.use(auth_1.authenticate);
@@ -366,6 +367,284 @@ router.delete('/tenants/:id', async (req, res) => {
     catch (error) {
         console.error('Delete tenant error:', error);
         res.status(500).json({ error: 'Failed to delete tenant' });
+    }
+});
+// ========== CREDENTIAL USER MANAGEMENT ROUTES ==========
+// Get all credential users (users with username/password)
+router.get('/credential-users', async (req, res) => {
+    try {
+        const result = await database_1.pool.query(`SELECT u.id, u.username, u.email, u.domain, u.tenant_id, u.role, 
+              u.created_at, u.last_login_at,
+              t.name as tenant_name
+       FROM site_users u
+       LEFT JOIN site_tenants t ON u.tenant_id = t.id
+       WHERE u.username IS NOT NULL AND u.password_hash IS NOT NULL
+       ORDER BY u.created_at DESC`);
+        res.json({ users: result.rows });
+    }
+    catch (error) {
+        console.error('Get credential users error:', error);
+        res.status(500).json({ error: 'Failed to fetch credential users' });
+    }
+});
+// Create credential user
+router.post('/credential-users', async (req, res) => {
+    try {
+        const { username, password, email, tenant_id, role = 'USER' } = req.body;
+        const adminUserId = req.user.id;
+        if (!username || !password || !tenant_id) {
+            return res.status(400).json({ error: 'Username, password, and tenant_id are required' });
+        }
+        // Validate username format (must be a valid email address)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(username)) {
+            return res.status(400).json({
+                error: 'Username must be a valid email address'
+            });
+        }
+        // Validate password strength (minimum 8 characters)
+        if (password.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+        }
+        // Check if username already exists
+        const existingUser = await database_1.pool.query('SELECT id FROM site_users WHERE username = $1', [username]);
+        if (existingUser.rows.length > 0) {
+            return res.status(400).json({ error: 'Username already exists' });
+        }
+        // Check if email is provided and if it already exists
+        if (email) {
+            const existingEmail = await database_1.pool.query('SELECT id FROM site_users WHERE email = $1', [email]);
+            if (existingEmail.rows.length > 0) {
+                return res.status(400).json({ error: 'Email already exists' });
+            }
+        }
+        // Verify tenant exists
+        const tenantResult = await database_1.pool.query('SELECT id, name, domain FROM site_tenants WHERE id = $1', [tenant_id]);
+        if (tenantResult.rows.length === 0) {
+            return res.status(400).json({ error: 'Tenant not found' });
+        }
+        const tenant = tenantResult.rows[0];
+        // Hash password
+        const saltRounds = 10;
+        const passwordHash = await bcryptjs_1.default.hash(password, saltRounds);
+        // Determine domain (use tenant domain if email not provided)
+        const domain = email ? email.split('@')[1]?.toLowerCase() : tenant.domain;
+        // Create user
+        const result = await database_1.pool.query(`INSERT INTO site_users (username, password_hash, email, domain, tenant_id, role, last_login_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NULL)
+       RETURNING id, username, email, domain, tenant_id, role, created_at`, [username, passwordHash, email || null, domain, tenant_id, role]);
+        const newUser = result.rows[0];
+        // Audit log
+        await database_1.pool.query(`INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, target_id, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6)`, [
+            adminUserId,
+            tenant_id,
+            'CREATE_CREDENTIAL_USER',
+            'user',
+            newUser.id,
+            JSON.stringify({ username, email: email || null, tenant_name: tenant.name }),
+        ]);
+        res.status(201).json({ user: newUser });
+    }
+    catch (error) {
+        console.error('Create credential user error:', error);
+        res.status(500).json({ error: 'Failed to create credential user' });
+    }
+});
+// Update credential user
+router.put('/credential-users/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { username, password, email, tenant_id, role } = req.body;
+        const adminUserId = req.user.id;
+        // Check if user exists and is a credential user
+        const existingUser = await database_1.pool.query('SELECT * FROM site_users WHERE id = $1 AND username IS NOT NULL', [id]);
+        if (existingUser.rows.length === 0) {
+            return res.status(404).json({ error: 'Credential user not found' });
+        }
+        const updates = [];
+        const params = [];
+        let paramCount = 1;
+        if (username !== undefined) {
+            // Validate username format (must be a valid email address)
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(username)) {
+                return res.status(400).json({
+                    error: 'Username must be a valid email address'
+                });
+            }
+            // Check if username already exists (excluding current user)
+            const usernameCheck = await database_1.pool.query('SELECT id FROM site_users WHERE username = $1 AND id != $2', [username, id]);
+            if (usernameCheck.rows.length > 0) {
+                return res.status(400).json({ error: 'Username already exists' });
+            }
+            updates.push(`username = $${paramCount++}`);
+            params.push(username);
+        }
+        if (password !== undefined) {
+            // Validate password strength
+            if (password.length < 8) {
+                return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+            }
+            // Hash password
+            const saltRounds = 10;
+            const passwordHash = await bcryptjs_1.default.hash(password, saltRounds);
+            updates.push(`password_hash = $${paramCount++}`);
+            params.push(passwordHash);
+        }
+        if (email !== undefined) {
+            // Check if email already exists (excluding current user)
+            if (email) {
+                const emailCheck = await database_1.pool.query('SELECT id FROM site_users WHERE email = $1 AND id != $2', [email, id]);
+                if (emailCheck.rows.length > 0) {
+                    return res.status(400).json({ error: 'Email already exists' });
+                }
+            }
+            updates.push(`email = $${paramCount++}`);
+            params.push(email || null);
+            // Update domain if email changed
+            if (email) {
+                const domain = email.split('@')[1]?.toLowerCase();
+                if (domain) {
+                    updates.push(`domain = $${paramCount++}`);
+                    params.push(domain);
+                }
+            }
+        }
+        if (tenant_id !== undefined) {
+            // Verify tenant exists
+            const tenantCheck = await database_1.pool.query('SELECT id FROM site_tenants WHERE id = $1', [tenant_id]);
+            if (tenantCheck.rows.length === 0) {
+                return res.status(400).json({ error: 'Tenant not found' });
+            }
+            updates.push(`tenant_id = $${paramCount++}`);
+            params.push(tenant_id);
+        }
+        if (role !== undefined) {
+            if (!['USER', 'ADMIN'].includes(role)) {
+                return res.status(400).json({ error: 'Invalid role' });
+            }
+            updates.push(`role = $${paramCount++}`);
+            params.push(role);
+        }
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+        params.push(id);
+        const result = await database_1.pool.query(`UPDATE site_users 
+       SET ${updates.join(', ')}
+       WHERE id = $${paramCount}
+       RETURNING id, username, email, domain, tenant_id, role, created_at, last_login_at`, params);
+        // Audit log
+        await database_1.pool.query(`INSERT INTO site_audit_logs (user_id, action, target_type, target_id, metadata)
+       VALUES ($1, $2, $3, $4, $5)`, [
+            adminUserId,
+            'UPDATE_CREDENTIAL_USER',
+            'user',
+            id,
+            JSON.stringify({ username, email, tenant_id, role }),
+        ]);
+        res.json({ user: result.rows[0] });
+    }
+    catch (error) {
+        console.error('Update credential user error:', error);
+        res.status(500).json({ error: 'Failed to update credential user' });
+    }
+});
+// Delete credential user
+router.delete('/credential-users/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const adminUserId = req.user.id;
+        // Check if user exists
+        const existingUser = await database_1.pool.query('SELECT * FROM site_users WHERE id = $1', [id]);
+        if (existingUser.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        // Don't allow deleting yourself
+        if (id === adminUserId) {
+            return res.status(400).json({ error: 'Cannot delete your own account' });
+        }
+        // Delete user
+        await database_1.pool.query('DELETE FROM site_users WHERE id = $1', [id]);
+        // Audit log
+        await database_1.pool.query(`INSERT INTO site_audit_logs (user_id, action, target_type, target_id, metadata)
+       VALUES ($1, $2, $3, $4, $5)`, [
+            adminUserId,
+            'DELETE_CREDENTIAL_USER',
+            'user',
+            id,
+            JSON.stringify({ username: existingUser.rows[0].username }),
+        ]);
+        res.json({ success: true });
+    }
+    catch (error) {
+        console.error('Delete credential user error:', error);
+        res.status(500).json({ error: 'Failed to delete credential user' });
+    }
+});
+// Get all analyses (admin only - shows all analyses across all tenants)
+router.get('/analyses', async (req, res) => {
+    try {
+        const result = await database_1.pool.query(`SELECT a.*, 
+              u.email as created_by_email,
+              u.username as created_by_username,
+              t.name as tenant_name,
+              t.domain as tenant_domain
+       FROM site_analyses a
+       JOIN site_users u ON a.created_by = u.id
+       JOIN site_tenants t ON a.tenant_id = t.id
+       ORDER BY a.updated_at DESC`);
+        res.json({ analyses: result.rows });
+    }
+    catch (error) {
+        console.error('Get all analyses error:', error);
+        res.status(500).json({ error: 'Failed to fetch analyses' });
+    }
+});
+// Update analysis tenant assignment (admin only)
+router.put('/analyses/:id/tenant', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tenant_id } = req.body;
+        const adminUserId = req.user.id;
+        if (!tenant_id) {
+            return res.status(400).json({ error: 'tenant_id is required' });
+        }
+        // Verify tenant exists
+        const tenantCheck = await database_1.pool.query('SELECT id FROM site_tenants WHERE id = $1', [tenant_id]);
+        if (tenantCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Tenant not found' });
+        }
+        // Verify analysis exists
+        const analysisCheck = await database_1.pool.query('SELECT id, tenant_id FROM site_analyses WHERE id = $1', [id]);
+        if (analysisCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Analysis not found' });
+        }
+        const oldTenantId = analysisCheck.rows[0].tenant_id;
+        // Update analysis tenant
+        await database_1.pool.query('UPDATE site_analyses SET tenant_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [tenant_id, id]);
+        // Log the change
+        await database_1.pool.query(`INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, target_id, metadata)
+       VALUES ($1, $2, 'REASSIGN_ANALYSIS', 'analysis', $3, $4)`, [
+            adminUserId,
+            tenant_id,
+            id,
+            JSON.stringify({
+                old_tenant_id: oldTenantId,
+                new_tenant_id: tenant_id,
+                admin_action: true
+            })
+        ]);
+        res.json({
+            success: true,
+            message: 'Analysis reassigned successfully',
+            analysis: { id, tenant_id }
+        });
+    }
+    catch (error) {
+        console.error('Update analysis tenant error:', error);
+        res.status(500).json({ error: 'Failed to update analysis tenant' });
     }
 });
 exports.default = router;

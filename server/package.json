@@ -11,6 +11,10 @@
     "add-constraint": "tsx src/db/add_constraint.ts",
     "fix-ancillary-precision": "tsx src/db/fix_ancillary_license_precision.ts",
     "add-analysis-versions": "tsx src/db/add_analysis_versions.ts",
+    "add-credential-users": "tsx src/db/add_credential_users.ts",
+    "add-analysis-type": "tsx src/db/add_analysis_type.ts",
+    "add-created-by-to-versions": "tsx src/db/add_created_by_to_versions.ts",
+    "delete-amex-versions": "tsx src/db/delete_amex_versions.ts",
     "seed": "tsx src/db/seed.ts"
   },
   "dependencies": {

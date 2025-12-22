@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { Calculator, Download, Save, Edit2, X, Check, Plus, Trash2 } from 'lucide-react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,6 +7,7 @@ import { getApiBaseUrl } from '../utils/apiConfig';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import logo from 'figma:asset/bc56b2cd1a0b77abaa55ba2f68f90ef6c8e0ef44.png';
+import TimelineAnalysisForm from '../components/TimelineAnalysisForm';
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -97,8 +98,20 @@ const ARCHITECTURE_SECTIONS = [
 
 export default function AnalysisForm() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuth();
-  const isNewAnalysis = id === 'new';
+  const navigate = useNavigate();
+  // 'create' is treated as a new analysis
+  const isNewAnalysis = !id || id === 'new' || id === 'create';
+  const queryAnalysisType = searchParams.get('type') as 'TCO' | 'TIMELINE' | null;
+  const [analysisType, setAnalysisType] = useState<'TCO' | 'TIMELINE' | null>(queryAnalysisType);
+
+  // If creating new analysis without type, redirect to selection
+  useEffect(() => {
+    if (isNewAnalysis && !queryAnalysisType) {
+      navigate('/analysis/new');
+    }
+  }, [isNewAnalysis, queryAnalysisType, navigate]);
 
   const [formData, setFormData] = useState<FormData>({
     mstrLicensingCost: '',
@@ -120,7 +133,7 @@ export default function AnalysisForm() {
   // State for editable report content - track which items are being edited
   const [editingItems, setEditingItems] = useState<Record<string, boolean>>({});
   const [editableContent, setEditableContent] = useState<{
-    costRows: Record<string, Array<{
+    costRows?: Record<string, Array<{
       id: string;
       costLabel: string;
       costValue: string;
@@ -129,11 +142,37 @@ export default function AnalysisForm() {
       confidenceScore: string;
       description: string;
     }>>;
-    assumptions: string[];
-    insights: { title: string; description: string }[];
-    terms: { title: string; description: string }[];
-    qa: { question: string; answer: string }[];
-    architectureImpact: string;
+    assumptions?: string[];
+    insights?: { title: string; description: string }[];
+    terms?: { title: string; description: string }[];
+    qa?: { question: string; answer: string }[];
+    architectureImpact?: string;
+    timelineData?: {
+      timeline: Array<{
+        id: string;
+        title: string;
+        startDate: string;
+        endDate: string;
+        description: string;
+        milestones: string[];
+        instances?: string[];
+      }>;
+      assumptions: Array<{
+        id: string;
+        category: string;
+        text: string;
+      }>;
+      methodology: Array<{
+        id: string;
+        title: string;
+        description: string;
+      }>;
+      qa: Array<{
+        id: string;
+        question: string;
+        answer: string;
+      }>;
+    };
   }>({
     costRows: {},
     assumptions: [],
@@ -158,13 +197,26 @@ export default function AnalysisForm() {
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/analysis/${id}/versions`, {
+        const response = await fetch(`${API_BASE_URL}/analysis/${id}/versions?t=${Date.now()}`, {
           headers: getAuthHeaders(),
+          cache: 'no-store', // Prevent caching
         });
 
         if (response.ok) {
           const data = await response.json();
-          setVersions(data.versions || []);
+          const versions = data.versions || [];
+          setVersions(versions);
+          // If no versions exist and current_version_number is 0, show version 1.0 as default
+          if (versions.length === 0 && currentVersionNumber === 0) {
+            setSelectedVersion(1);
+          } else if (versions.length === 0) {
+            // If no versions exist, clear selected version
+            setSelectedVersion(null);
+          } else if (versions.length > 0 && !selectedVersion) {
+            // If versions exist but none selected, select the latest
+            const latestVersion = Math.max(...versions.map(v => v.version_number));
+            setSelectedVersion(latestVersion);
+          }
         }
       } catch (error) {
         console.error('Error loading versions:', error);
@@ -172,7 +224,7 @@ export default function AnalysisForm() {
     };
 
     loadVersions();
-  }, [id]);
+  }, [id, currentVersionNumber]);
 
   // Capture MicroStrategy Architecture Diagram as image when results are shown
   useEffect(() => {
@@ -274,11 +326,23 @@ export default function AnalysisForm() {
         const data = await response.json();
         const { analysis, inputs, results, editableContent } = data;
         
+        // Set analysis type from loaded analysis
+        if (analysis.analysis_type) {
+          setAnalysisType(analysis.analysis_type);
+        }
+        
         // Set current version number
-        if (analysis.current_version_number) {
+        if (analysis.current_version_number !== null && analysis.current_version_number !== undefined) {
           setCurrentVersionNumber(analysis.current_version_number);
           if (!selectedVersion) {
-            setSelectedVersion(analysis.current_version_number);
+            // If version is 0, set to 1 (starting fresh)
+            setSelectedVersion(analysis.current_version_number === 0 ? 1 : analysis.current_version_number);
+          }
+        } else {
+          // If no version number, start from 1
+          setCurrentVersionNumber(0);
+          if (!selectedVersion) {
+            setSelectedVersion(1);
           }
         }
 
@@ -317,9 +381,31 @@ export default function AnalysisForm() {
         }
 
         // Load editable content if available (from saved version)
+        // For Timeline analyses, only load timelineData; for TCO, load TCO-specific fields
         if (editableContent) {
-          setEditableContent(editableContent);
-          initializedRef.current = true; // Mark as initialized so it doesn't get overwritten
+          if (analysis.analysis_type === 'TIMELINE') {
+            // For Timeline, only keep timelineData and filter out TCO-specific fields
+            const timelineOnlyContent = {
+              timelineData: editableContent.timelineData || null,
+            };
+            setEditableContent(timelineOnlyContent);
+          } else {
+            // For TCO, load all editable content (costRows, assumptions, insights, etc.)
+            // Check if assumptions, qa, or terms are empty and need initialization
+            const hasEmptyArrays = 
+              (!editableContent.assumptions || editableContent.assumptions.length === 0) ||
+              (!editableContent.qa || editableContent.qa.length === 0) ||
+              (!editableContent.terms || editableContent.terms.length === 0);
+            
+            if (hasEmptyArrays) {
+              // Don't mark as initialized if arrays are empty - let initializeEditableContent fill them
+              setEditableContent(editableContent);
+              initializedRef.current = false;
+            } else {
+              setEditableContent(editableContent);
+              initializedRef.current = true; // Mark as initialized so it doesn't get overwritten
+            }
+          }
         }
 
         // Mark that we have saved results (we'll show them after pricing loads)
@@ -462,6 +548,11 @@ export default function AnalysisForm() {
       'Data Egress (10+ TB)': 'Data Egress (10+ TB)',
     };
 
+    // Safety check: if pricingData is not loaded yet, return 0
+    if (!pricingData || Object.keys(pricingData).length === 0) {
+      return 0;
+    }
+    
     // Look up the actual pricing key (map display name to pricing key if needed)
     const pricingKey = tierMapping[selection.selectedTier] || selection.selectedTier;
     const pricing = pricingData[pricingKey];
@@ -562,10 +653,10 @@ export default function AnalysisForm() {
     const cloudSupportCosts = Number(formData.cloudSupportCosts || 0); // Cloud Support costs - In-house staff costs
     // MSTR Support Costs = Professional Services (Strategy + Vendor) from input field
     const mstrSupport = Number(formData.mstrSupportCosts || 0); // Professional Services (Strategy + Vendor) - displayed as "MSTR Support Costs" under Support Costs
-    const supportServicesCost = calculateSupportServicesCost(); // Support & Services cost
+    const supportServicesCost = calculateSupportServicesCost(); // Support & Services cost (Service Component)
     const supportServicesTotal = supportServicesCost + mstrSupport; // Support & Services Total costs
-    // Cloud Personnel costs = Cloud Support Costs + Support & Services Total costs
-    const cloudPersonnel = cloudSupportCosts + supportServicesTotal;
+    // Cloud Personnel costs = Cloud Support Costs + Service Component (Support & Services)
+    const cloudPersonnel = cloudSupportCosts + supportServicesCost;
     
     // Cloud Infrastructure Costs from Architecture Calculator
     const totalCloudInfra = getArchitectureTotal();
@@ -576,8 +667,9 @@ export default function AnalysisForm() {
     const clearwaysMstrLicensing = mstrLicensing;
     const clearwaysAncillary = ancillaryLicensing;
     const clearwaysCloudInfra = totalCloudInfra * 0.7; // 30% savings
-    // Apply 40% savings only to Cloud Support Costs, not to Support & Services Total
-    const clearwaysPersonnel = (cloudSupportCosts * 0.6) + supportServicesTotal; // 40% savings on Cloud Support Costs only
+    // Apply 40% savings only to Cloud Support Costs, not to Service Component or Support & Services Total
+    // Cloud Personnel = Cloud Support Costs + Service Component, so we apply savings to Cloud Support Costs only
+    const clearwaysPersonnel = (cloudSupportCosts * 0.6) + supportServicesCost + mstrSupport; // 40% savings on Cloud Support Costs only
     const clearwaysMstrSupport = mstrSupport;
     const totalClearways = clearwaysMstrLicensing + clearwaysAncillary + clearwaysCloudInfra + clearwaysPersonnel;
     
@@ -766,7 +858,7 @@ export default function AnalysisForm() {
       'support-costs': [
         {
           id: 'cloud-personnel-costs',
-          costLabel: 'Cloud Personnel costs - In-house staff costs including engineers, architects, and support personnel. Includes salaries, benefits, training, overhead, and opportunity costs. Fixed until hiring/termination decisions are made.',
+          costLabel: 'Cloud Personnel costs - In-house staff costs including engineers, architects, and support personnel, plus Service Component (Support & Services). Includes salaries, benefits, training, overhead, and opportunity costs. Fixed until hiring/termination decisions are made.',
           costValue: costsData.currentState.cloudPersonnel.toLocaleString('en-US', { minimumFractionDigits: 2 }),
           natureOfCosts: 'Semi-Fixed',
           costSensitivity: 'Medium',
@@ -839,6 +931,95 @@ export default function AnalysisForm() {
       initializedRef.current = true;
     }
   }, [showResults, costs]);
+  
+  // Function to delete all versions for this analysis
+  const deleteAllVersions = async () => {
+    if (!id || id === 'new' || id === 'create') {
+      alert('Please open an existing analysis first');
+      return;
+    }
+    
+    if (!confirm('Are you sure you want to delete ALL versions for this analysis? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/analysis/${id}/versions`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to delete versions');
+      }
+      
+      const result = await response.json();
+      alert(`Successfully deleted ${result.deletedCount} version(s)`);
+      
+      // Reset version state and reload
+      setCurrentVersionNumber(null);
+      setSelectedVersion(null);
+      setVersions([]);
+      
+      // Reload the analysis
+      window.location.reload();
+    } catch (error) {
+      console.error('Error deleting versions:', error);
+      alert(`Failed to delete versions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  // Function to copy data from version 25 to latest version
+  const copyDataFromVersion25 = async () => {
+    if (!id || id === 'new' || id === 'create') {
+      alert('Please open an existing analysis first');
+      return;
+    }
+    
+    if (!currentVersionNumber) {
+      alert('Could not determine current version number');
+      return;
+    }
+    
+    const sourceVersion = 25;
+    const targetVersion = currentVersionNumber;
+    
+    if (sourceVersion === targetVersion) {
+      alert('Source and target versions are the same');
+      return;
+    }
+    
+    if (!confirm(`Copy Q&A, Insights, Assumptions, and Architecture Choice Costs from version ${sourceVersion} to version ${targetVersion}?`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/analysis/${id}/copy-version-data`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          sourceVersion: sourceVersion,
+          targetVersion: targetVersion,
+          fields: ['qa', 'insights', 'assumptions', 'costRows'], // Copy these specific fields
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to copy version data');
+      }
+      
+      const result = await response.json();
+      alert(`Successfully copied data from version ${sourceVersion} to version ${targetVersion}`);
+      
+      // Reload the analysis to show updated data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error copying version data:', error);
+      alert(`Failed to copy data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
 
   // Helper function to format cost value to 2 decimal places (unless it's a text like "Impact: X%")
   const formatCostValue = (value: string | number): string => {
@@ -969,7 +1150,7 @@ export default function AnalysisForm() {
       'support-costs': [
         {
           id: 'cloud-personnel-costs',
-          costLabel: 'Cloud Personnel costs - In-house staff costs including engineers, architects, and support personnel. Includes salaries, benefits, training, overhead, and opportunity costs. Fixed until hiring/termination decisions are made.',
+          costLabel: 'Cloud Personnel costs - In-house staff costs including engineers, architects, and support personnel, plus Service Component (Support & Services). Includes salaries, benefits, training, overhead, and opportunity costs. Fixed until hiring/termination decisions are made.',
           costValue: formatCostValue(costs.currentState.cloudPersonnel),
           natureOfCosts: 'Semi-Fixed',
           costSensitivity: 'Medium',
@@ -1031,7 +1212,7 @@ export default function AnalysisForm() {
 
   // Helper functions for managing dynamic rows
   const getTableRows = (tableId: string) => {
-    const existing = editableContent.costRows[tableId];
+    const existing = editableContent?.costRows?.[tableId];
     const defaultRows = getDefaultRowsForTable(tableId);
     
     // If no defaults available (costs not calculated yet), return existing or empty array
@@ -1050,11 +1231,21 @@ export default function AnalysisForm() {
     // Merge defaults with existing, but only include default rows that still exist (not deleted)
     // For cost values: use calculated default value for numeric costs (to match subtotals),
     // but preserve edited values for descriptive strings (like "Impact: 15-25% waste")
+    // IMPORTANT: For architecture-choice-costs table, always preserve all user edits
+    const isArchitectureChoiceCosts = tableId === 'architecture-choice-costs';
+    
     const merged = defaultRows
       .filter(defaultRow => existingIds.has(defaultRow.id)) // Only include defaults that still exist (not deleted)
       .map((defaultRow) => {
         const existingRow = existing.find(r => r.id === defaultRow.id);
         if (existingRow) {
+          // For architecture-choice-costs, always preserve all user edits completely
+          if (isArchitectureChoiceCosts) {
+            return {
+              ...existingRow, // Preserve all user edits
+            };
+          }
+          
           // Check if costValue is a descriptive string (contains "Impact:" or "%") or a calculated number
           const isDescriptiveString = defaultRow.costValue.includes('Impact:') || 
                                       defaultRow.costValue.includes('%') ||
@@ -1084,7 +1275,7 @@ export default function AnalysisForm() {
 
   const addRowToTable = (tableId: string) => {
     setEditableContent(prev => {
-      const existing = prev.costRows[tableId] || [];
+      const existing = prev?.costRows?.[tableId] || [];
       const newRow = {
         id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         costLabel: '',
@@ -1097,7 +1288,7 @@ export default function AnalysisForm() {
       return {
         ...prev,
         costRows: {
-          ...prev.costRows,
+          ...(prev?.costRows || {}),
           [tableId]: [...existing, newRow],
         },
       };
@@ -1106,11 +1297,11 @@ export default function AnalysisForm() {
 
   const deleteRowFromTable = (tableId: string, rowId: string) => {
     setEditableContent(prev => {
-      const existing = prev.costRows[tableId] || [];
+      const existing = prev?.costRows?.[tableId] || [];
       return {
         ...prev,
         costRows: {
-          ...prev.costRows,
+          ...(prev?.costRows || {}),
           [tableId]: existing.filter(r => r.id !== rowId),
         },
       };
@@ -1121,66 +1312,66 @@ export default function AnalysisForm() {
   const addInsight = () => {
     setEditableContent(prev => ({
       ...prev,
-      insights: [...prev.insights, { title: '', description: '' }],
+      insights: [...(prev?.insights || []), { title: '', description: '' }],
     }));
   };
 
   const deleteInsight = (index: number) => {
     setEditableContent(prev => ({
       ...prev,
-      insights: prev.insights.filter((_, i) => i !== index),
+      insights: (prev?.insights || []).filter((_, i) => i !== index),
     }));
   };
 
   const addAssumption = () => {
     setEditableContent(prev => ({
       ...prev,
-      assumptions: [...prev.assumptions, ''],
+      assumptions: [...(prev?.assumptions || []), ''],
     }));
   };
 
   const deleteAssumption = (index: number) => {
     setEditableContent(prev => ({
       ...prev,
-      assumptions: prev.assumptions.filter((_, i) => i !== index),
+      assumptions: (prev?.assumptions || []).filter((_, i) => i !== index),
     }));
   };
 
   const addTerm = () => {
     setEditableContent(prev => ({
       ...prev,
-      terms: [...prev.terms, { title: '', description: '' }],
+      terms: [...(prev?.terms || []), { title: '', description: '' }],
     }));
   };
 
   const deleteTerm = (index: number) => {
     setEditableContent(prev => ({
       ...prev,
-      terms: prev.terms.filter((_, i) => i !== index),
+      terms: (prev?.terms || []).filter((_, i) => i !== index),
     }));
   };
 
   const addQA = () => {
     setEditableContent(prev => ({
       ...prev,
-      qa: [...prev.qa, { question: '', answer: '' }],
+      qa: [...(prev?.qa || []), { question: '', answer: '' }],
     }));
   };
 
   const deleteQA = (index: number) => {
     setEditableContent(prev => ({
       ...prev,
-      qa: prev.qa.filter((_, i) => i !== index),
+      qa: (prev?.qa || []).filter((_, i) => i !== index),
     }));
   };
 
   const updateRowData = (tableId: string, rowId: string, field: string, value: string) => {
     setEditableContent(prev => {
-      const existing = prev.costRows[tableId] || [];
+      const existing = prev?.costRows?.[tableId] || [];
       return {
         ...prev,
         costRows: {
-          ...prev.costRows,
+          ...(prev?.costRows || {}),
           [tableId]: existing.map(row => 
             row.id === rowId ? { ...row, [field]: value } : row
           ),
@@ -1212,11 +1403,15 @@ export default function AnalysisForm() {
           {isEditMode ? (
             <div className="space-y-2">
               <textarea
-                value={row.costLabel}
+                value={row.costLabel || ''}
                 onChange={(e) => updateRowData(tableId, row.id, 'costLabel', e.target.value)}
                 className="w-full text-sm text-gray-700 italic border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#17A2B8] resize-none"
                 rows={2}
                 placeholder="Cost label"
+                spellCheck={false}
+                data-gramm="false"
+                data-gramm_editor="false"
+                data-enable-grammarly="false"
               />
               <input
                 type="text"
@@ -1241,7 +1436,7 @@ export default function AnalysisForm() {
           {isEditMode ? (
             <input
               type="text"
-              value={row.natureOfCosts}
+              value={row.natureOfCosts || ''}
               onChange={(e) => updateRowData(tableId, row.id, 'natureOfCosts', e.target.value)}
               className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#17A2B8]"
               placeholder="Nature of costs"
@@ -1253,7 +1448,7 @@ export default function AnalysisForm() {
         <td className="px-6 py-4 align-top">
           {isEditMode ? (
             <select
-              value={row.costSensitivity}
+              value={row.costSensitivity || ''}
               onChange={(e) => updateRowData(tableId, row.id, 'costSensitivity', e.target.value)}
               className="border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#17A2B8]"
             >
@@ -1274,7 +1469,7 @@ export default function AnalysisForm() {
         <td className="px-6 py-4 align-top">
           {isEditMode ? (
             <select
-              value={row.confidenceScore}
+              value={row.confidenceScore || ''}
               onChange={(e) => updateRowData(tableId, row.id, 'confidenceScore', e.target.value)}
               className="border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#17A2B8]"
             >
@@ -1336,11 +1531,15 @@ export default function AnalysisForm() {
         <td className="px-6 py-4 text-sm align-top overflow-hidden">
           {isEditMode ? (
             <textarea
-              value={row.description}
+              value={row.description || ''}
               onChange={(e) => updateRowData(tableId, row.id, 'description', e.target.value)}
               className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#17A2B8] resize-none"
               rows={2}
               placeholder="Description"
+              spellCheck={false}
+              data-gramm="false"
+              data-gramm_editor="false"
+              data-enable-grammarly="false"
             />
           ) : (
             <span className={`break-words block ${isSubtotal ? 'text-white' : 'text-gray-700'}`}>{row.description}</span>
@@ -2247,22 +2446,125 @@ export default function AnalysisForm() {
     }
   };
 
-  const handleSave = async () => {
-    if (!costs) {
+  // Helper function to clean object of circular references and non-serializable values
+  const cleanForSerialization = (obj: any, seen = new WeakSet()): any => {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+    
+    // Handle functions - skip them entirely
+    if (typeof obj === 'function') {
+      return undefined;
+    }
+    
+    // Handle primitives
+    if (typeof obj !== 'object') {
+      return obj;
+    }
+    
+    // Handle Date objects
+    if (obj instanceof Date) {
+      return obj.toISOString();
+    }
+    
+    // Handle arrays
+    if (Array.isArray(obj)) {
+      return obj.map(item => cleanForSerialization(item, seen)).filter(item => item !== undefined);
+    }
+    
+    // Check for circular reference
+    if (seen.has(obj)) {
+      return '[Circular]';
+    }
+    
+    // Check for non-serializable objects
+    if (obj instanceof HTMLElement || obj instanceof Event || obj instanceof Node || obj instanceof Window) {
+      return '[DOM Element]';
+    }
+    
+    // Check for React elements or Fiber nodes - check for any property that looks like React internals
+    const hasReactInternals = obj.$$typeof || 
+                               obj.stateNode || 
+                               Object.keys(obj).some(key => key.startsWith('_react') || key.startsWith('__react'));
+    
+    if (hasReactInternals) {
+      return '[React Element]';
+    }
+    
+    // Add to seen set
+    seen.add(obj);
+    
+    // Recursively clean object
+    const cleaned: any = {};
+    for (const key in obj) {
+      // Skip React internal properties and function properties
+      if (key.startsWith('_react') || 
+          key.startsWith('__react') ||
+          key === 'ref' || 
+          key === 'key' ||
+          key === 'onClick' ||
+          key === 'onChange' ||
+          key === 'onSubmit' ||
+          key === 'onMouseEnter' ||
+          key === 'onMouseLeave' ||
+          typeof obj[key] === 'function') {
+        continue;
+      }
+      
+      try {
+        const cleanedValue = cleanForSerialization(obj[key], seen);
+        if (cleanedValue !== undefined) {
+          cleaned[key] = cleanedValue;
+        }
+      } catch (e) {
+        // Skip properties that cause errors
+        continue;
+      }
+    }
+    
+    return cleaned;
+  };
+
+  const handleSave = async (contentOverride?: typeof editableContent) => {
+    // For Timeline analysis, we don't need costs
+    if (analysisType !== 'TIMELINE' && !costs) {
       alert('Please generate the analysis first');
       return;
     }
 
     setIsSaving(true);
     try {
+      // Use override content if provided, otherwise use state
+      const contentToUse = contentOverride || editableContent;
+      
+      // For Timeline analysis, ensure we have timelineData in editableContent
+      if (analysisType === 'TIMELINE') {
+        console.log('Timeline save - content to use:', contentToUse);
+        if (!contentToUse || !contentToUse.timelineData) {
+          console.error('No timelineData found in content!');
+          alert('No timeline data to save. Please ensure all fields are filled.');
+          setIsSaving(false);
+          return;
+        }
+        console.log('Timeline data to save:', contentToUse.timelineData);
+        console.log('Section headers:', contentToUse.timelineData.sectionHeaders);
+        console.log('Timeline phases:', contentToUse.timelineData.timeline?.length);
+        console.log('Assumptions:', contentToUse.timelineData.assumptions?.length);
+        console.log('Methodology:', contentToUse.timelineData.methodology?.length);
+        console.log('Q&A:', contentToUse.timelineData.qa?.length);
+      }
+      
       // Treat "new" as undefined - need to create a new analysis
-      let analysisId = (id && id !== 'new') ? id : undefined;
+      let analysisId = (id && id !== 'new' && id !== 'create') ? id : undefined;
 
       // If new analysis, create it first
       if (!analysisId) {
         const createResponse = await fetch(`${API_BASE_URL}/analysis`, {
           method: 'POST',
           headers: getAuthHeaders(),
+          body: JSON.stringify({
+            analysis_type: analysisType || 'TCO',
+          }),
         });
 
         if (!createResponse.ok) {
@@ -2273,40 +2575,99 @@ export default function AnalysisForm() {
         analysisId = createData.analysis.id;
       }
 
-      // Prepare inputs data
-      const inputsData = {
-        mstr_license_per_instance: Number(formData.mstrLicensingCost || 0),
-        ancillary_license_pct: Number(formData.ancillaryLicensingPercentage || 0),
-        instance_count: Number(formData.numberOfInstances || 0),
-        hosting_environment: formData.hostingEnvironment,
-        tier_selections: componentSelections,
-        storage_gb: 0, // These are now calculated from component selections
-        egress_gb: 0,
-        compute_gb: 0,
-        infrastructure_gb: 0,
-        cloud_personnel_cost: Number(formData.cloudSupportCosts || 0),
-        mstr_support_cost: Number(formData.mstrSupportCosts || 0),
-      };
+      // For TCO analysis, update inputs and compute results
+      if (analysisType !== 'TIMELINE') {
+        // Prepare inputs data
+        const inputsData = {
+          mstr_license_per_instance: Number(formData.mstrLicensingCost || 0),
+          ancillary_license_pct: Number(formData.ancillaryLicensingPercentage || 0),
+          instance_count: Number(formData.numberOfInstances || 0),
+          hosting_environment: formData.hostingEnvironment,
+          tier_selections: componentSelections,
+          storage_gb: 0, // These are now calculated from component selections
+          egress_gb: 0,
+          compute_gb: 0,
+          infrastructure_gb: 0,
+          cloud_personnel_cost: Number(formData.cloudSupportCosts || 0),
+          mstr_support_cost: Number(formData.mstrSupportCosts || 0),
+        };
 
-      // Update inputs (this will also recompute results)
-      const updateResponse = await fetch(`${API_BASE_URL}/analysis/${analysisId}/inputs`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(inputsData),
-      });
+        // Update inputs (this will also recompute results)
+        const updateResponse = await fetch(`${API_BASE_URL}/analysis/${analysisId}/inputs`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(inputsData),
+        });
 
-      if (!updateResponse.ok) {
-        throw new Error('Failed to update analysis inputs');
+        if (!updateResponse.ok) {
+          throw new Error('Failed to update analysis inputs');
+        }
       }
 
       // Save the analysis (LIVE -> SAVED) with editable content for versioning
+      // Use the content passed in or fall back to state
+      const contentToSave = contentToUse || {};
+      
+      // Clean the content to remove any circular references or non-serializable values
+      const cleanedContent = cleanForSerialization(contentToSave);
+      
+      // Log what we're saving for debugging
+      try {
+        console.log('Saving analysis with editable_content:', JSON.stringify(cleanedContent, null, 2));
+      } catch (e) {
+        console.log('Saving analysis (serialization skipped due to error)');
+      }
+      if (analysisType === 'TIMELINE') {
+        console.log('Timeline data in editableContent:', cleanedContent.timelineData);
+        console.log('Section headers:', cleanedContent.timelineData?.sectionHeaders);
+        console.log('Timeline phases count:', cleanedContent.timelineData?.timeline?.length);
+        console.log('Assumptions count:', cleanedContent.timelineData?.assumptions?.length);
+        console.log('Methodology count:', cleanedContent.timelineData?.methodology?.length);
+        console.log('Q&A count:', cleanedContent.timelineData?.qa?.length);
+      }
+      
+      // Double-check that we can stringify the cleaned content
+      let requestBody;
+      try {
+        requestBody = JSON.stringify({
+          title: analysisTitle || 'Untitled Analysis',
+          editable_content: cleanedContent,
+        });
+      } catch (e: any) {
+        console.error('Error stringifying cleaned content:', e);
+        // If still failing, create a minimal safe object
+        const minimalContent: any = {};
+        if (cleanedContent.costRows) {
+          minimalContent.costRows = cleanedContent.costRows;
+        }
+        if (cleanedContent.assumptions) {
+          minimalContent.assumptions = cleanedContent.assumptions;
+        }
+        if (cleanedContent.insights) {
+          minimalContent.insights = cleanedContent.insights;
+        }
+        if (cleanedContent.terms) {
+          minimalContent.terms = cleanedContent.terms;
+        }
+        if (cleanedContent.qa) {
+          minimalContent.qa = cleanedContent.qa;
+        }
+        if (cleanedContent.architectureImpact) {
+          minimalContent.architectureImpact = cleanedContent.architectureImpact;
+        }
+        if (cleanedContent.timelineData) {
+          minimalContent.timelineData = cleanedContent.timelineData;
+        }
+        requestBody = JSON.stringify({
+          title: analysisTitle || 'Untitled Analysis',
+          editable_content: minimalContent,
+        });
+      }
+      
       const saveResponse = await fetch(`${API_BASE_URL}/analysis/${analysisId}/save`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({
-          title: analysisTitle || 'Untitled Analysis',
-          editable_content: editableContent,
-        }),
+        body: requestBody,
       });
 
       if (!saveResponse.ok) {
@@ -2333,6 +2694,7 @@ export default function AnalysisForm() {
     }
   };
 
+
   if (loadingAnalysis) {
     return (
       <div className="min-h-screen bg-gray-50 py-12">
@@ -2352,14 +2714,23 @@ export default function AnalysisForm() {
         <div className="mb-8">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-gray-900 mb-2">
-                {isNewAnalysis ? 'Create New Analysis' : 'Edit Analysis'}
-              </h1>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-gray-900">
+                  {isNewAnalysis ? 'Create New Analysis' : 'Edit Analysis'}
+                </h1>
+                {analysisType && (
+                  <span className="text-sm px-3 py-1 rounded-full bg-gray-100 text-gray-600 font-medium">
+                    {analysisType === 'TCO' ? 'TCO Analysis' : 'Timeline Estimate'}
+                  </span>
+                )}
+              </div>
               <p className="text-gray-600">
-                Enter your MSTR deployment details for cost analysis
+                {analysisType === 'TIMELINE' 
+                  ? 'Enter your project details for timeline estimation'
+                  : 'Enter your MSTR deployment details for cost analysis'}
               </p>
             </div>
-            {!isNewAnalysis && versions.length > 0 && (
+            {!isNewAnalysis && (
               <div className="flex flex-col items-end gap-2">
                 <div className="flex items-center gap-2">
                   <label htmlFor="version-select" className="text-sm text-gray-600">
@@ -2374,17 +2745,21 @@ export default function AnalysisForm() {
                     }}
                     className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#17A2B8]"
                   >
-                    {versions.map((v) => (
-                      <option key={v.version_number} value={v.version_number}>
-                        v{v.version_number} - {new Date(v.created_at).toLocaleString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </option>
-                    ))}
+                    {versions.length > 0 ? (
+                      versions.map((v) => (
+                        <option key={v.version_number} value={v.version_number}>
+                          v{v.version_number} - {new Date(v.created_at).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="1">v1.0 - Starting fresh</option>
+                    )}
                   </select>
                 </div>
                 {selectedVersion && (() => {
@@ -2422,11 +2797,80 @@ export default function AnalysisForm() {
               value={analysisTitle}
               onChange={(e) => setAnalysisTitle(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#17A2B8] focus:border-transparent"
-              placeholder="e.g., AWS Enterprise Deployment - Q4 2024"
+              placeholder={analysisType === 'TIMELINE' ? 'e.g., Enterprise Migration Timeline 2026-2027' : 'e.g., AWS Enterprise Deployment - Q4 2024'}
             />
           </div>
         )}
 
+        {/* Timeline Analysis Form */}
+        {analysisType === 'TIMELINE' ? (
+          <TimelineAnalysisForm
+            data={editableContent?.timelineData}
+            onSave={(data) => {
+              // Store timeline data in editableContent immediately
+              const updated = {
+                ...(editableContent || {}),
+                timelineData: data,
+              };
+              console.log('onSave called with data:', data);
+              console.log('Updated editableContent:', updated);
+              setEditableContent(updated);
+            }}
+            onSaveToBackend={async (timelineData) => {
+              // Use the timeline data passed directly, or fall back to state
+              const dataToSave = timelineData || editableContent?.timelineData;
+              console.log('onSaveToBackend called with timelineData:', timelineData);
+              console.log('Current editableContent:', editableContent);
+              
+              if (!dataToSave) {
+                console.warn('No timeline data to save!');
+                alert('No timeline data to save. Please ensure all fields are filled.');
+                setIsSaving(false);
+                return;
+              }
+              
+              // Update editableContent with the latest timeline data
+              const updatedContent = {
+                ...(editableContent || {}),
+                timelineData: dataToSave,
+              };
+              // Log safely to avoid circular references
+              try {
+                const safeContentToLog = JSON.parse(JSON.stringify(updatedContent, (key, value) => {
+                  if (typeof value === 'object' && value !== null) {
+                    if (value instanceof HTMLElement || value instanceof Event) {
+                      return '[HTMLElement]';
+                    }
+                    if (key === '_reactFiber' || key === 'stateNode' || key === 'ref') {
+                      return undefined;
+                    }
+                  }
+                  return value;
+                }));
+                console.log('Updated editableContent before save:', JSON.stringify(safeContentToLog, null, 2));
+              } catch (e) {
+                console.log('Updated editableContent (serialization skipped)');
+              }
+              console.log('Section headers in updated content:', updatedContent.timelineData?.sectionHeaders);
+              console.log('Timeline phases:', updatedContent.timelineData?.timeline?.length);
+              console.log('Assumptions:', updatedContent.timelineData?.assumptions?.length);
+              console.log('Methodology:', updatedContent.timelineData?.methodology?.length);
+              console.log('Q&A:', updatedContent.timelineData?.qa?.length);
+              
+              // Update state
+              setEditableContent(updatedContent);
+              
+              // Call save handler directly with the updated content to avoid race conditions
+              await handleSave(updatedContent);
+            }}
+            isEditMode={isEditMode || isNewAnalysis}
+            isSaving={isSaving}
+            onToggleEditMode={() => setIsEditMode(!isEditMode)}
+            onExportPDF={handleExportPDF}
+            analysisTitle={analysisTitle}
+          />
+        ) : analysisType === 'TCO' ? (
+          <>
         {/* Analysis Inputs Card */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-gray-900 mb-6">Analysis Inputs</h2>
@@ -2894,25 +3338,45 @@ export default function AnalysisForm() {
                   <p className="text-[#17A2B8]/90 text-lg">Comprehensive cost analysis and recommendations</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  {currentVersionNumber && currentVersionNumber > 0 && (
+                    <button
+                      onClick={deleteAllVersions}
+                      className="flex items-center gap-2 bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded-lg transition-colors font-medium"
+                      title="Delete all versions for this analysis"
+                    >
+                      <Trash2 size={18} />
+                      Delete All Versions
+                    </button>
+                  )}
+                  {currentVersionNumber && currentVersionNumber > 25 && (
+                    <button
+                      onClick={copyDataFromVersion25}
+                      className="flex items-center gap-2 bg-yellow-500 text-white hover:bg-yellow-600 px-4 py-2 rounded-lg transition-colors font-medium"
+                      title="Copy Q&A, Insights, Assumptions, and Architecture Choice Costs from version 25"
+                    >
+                      <Save size={18} />
+                      Copy from v25
+                    </button>
+                  )}
                   <button
-                    onClick={() => setIsEditMode(!isEditMode)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      isEditMode
-                        ? 'bg-white text-[#17A2B8] hover:bg-gray-100'
-                        : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
-                    }`}
-                  >
-                    {isEditMode ? <X size={18} /> : <Edit2 size={18} />}
-                    {isEditMode ? 'Exit Edit' : 'Edit Report'}
-                  </button>
-                  <button
-                    onClick={handleExportPDF}
-                    className="flex items-center gap-2 bg-white text-[#17A2B8] hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors font-medium"
-                  >
-                    <Download size={20} />
-                    Export Report
-                  </button>
-                </div>
+              onClick={() => setIsEditMode(!isEditMode)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                isEditMode
+                  ? 'bg-white text-[#17A2B8] hover:bg-gray-100'
+                  : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
+              }`}
+            >
+              {isEditMode ? <X size={18} /> : <Edit2 size={18} />}
+              {isEditMode ? 'Exit Edit' : 'Edit Report'}
+            </button>
+            <button
+              onClick={handleExportPDF}
+              className="flex items-center gap-2 bg-white text-[#17A2B8] hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors font-medium"
+            >
+              <Download size={20} />
+              Export Report
+            </button>
+          </div>
               </div>
             </div>
 
@@ -3007,7 +3471,7 @@ export default function AnalysisForm() {
               </div>
               
               <div className="space-y-4">
-                {editableContent.insights.map((insight, index) => {
+                {(editableContent?.insights || []).map((insight, index) => {
                   const itemKey = `insight-${index}`;
                   const isEditing = isEditMode && editingItems[itemKey];
                   return (
@@ -3434,7 +3898,7 @@ export default function AnalysisForm() {
               
               <div className="p-6">
                 <div className="space-y-3">
-                  {editableContent.assumptions.map((assumption, index) => {
+                  {(editableContent?.assumptions || []).map((assumption, index) => {
                     const itemKey = `assumption-${index}`;
                     const isEditing = isEditMode && editingItems[itemKey];
                     return (
@@ -3489,6 +3953,123 @@ export default function AnalysisForm() {
               </div>
             </div>
 
+            {/* Components of Cost Sensitivity & Confidence Scores */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden border-2 border-[#F59E0B]" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #F59E0B' }}>
+              <div className="bg-[#F59E0B] text-white px-6 py-4" style={{ backgroundColor: '#F59E0B', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 style={{ color: 'white', fontWeight: 'bold' }}>Components of Cost Sensitivity & Confidence Scores</h3>
+                    <p className="text-sm opacity-90 mt-1" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                      Understanding the factors that determine how costs respond to changes in scale, control, and forecasting accuracy, along with confidence ratings for estimates.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <div className="space-y-6">
+                  {/* Components of Cost Sensitivity */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-4 text-lg">Components of Cost Sensitivity</h4>
+                    
+                    <div className="space-y-6">
+                      <div>
+                        <h5 className="font-medium text-gray-800 mb-3">1. Elasticity – How much the cost changes with scale:</h5>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Indicates how responsive a cost is to growth, usage, or incorrect assumptions.
+                        </p>
+                        <ul className="text-sm text-gray-600 space-y-2 ml-4">
+                          <li className="flex items-start gap-2">
+                            <span className="text-[#F59E0B] font-bold mt-0.5">•</span>
+                            <span><strong>Low elasticity:</strong> Cost remains relatively stable over time.</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-[#F59E0B] font-bold mt-0.5">•</span>
+                            <span><strong>High elasticity:</strong> Cost can increase rapidly with higher usage, scale, or suboptimal design decisions.</span>
+                          </li>
+                        </ul>
+                      </div>
+                      
+                      <div className="border-t border-gray-200 pt-6">
+                        <h5 className="font-medium text-gray-800 mb-3">2. Control – Who can influence the cost:</h5>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Identifies where accountability sits for managing or constraining the cost.
+                        </p>
+                        <ul className="text-sm text-gray-600 space-y-2 ml-4">
+                          <li className="flex items-start gap-2">
+                            <span className="text-[#F59E0B] font-bold mt-0.5">•</span>
+                            <span><strong>Contractual:</strong> Locked by agreement; limited ability to influence in-year.</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-[#F59E0B] font-bold mt-0.5">•</span>
+                            <span><strong>Architectural:</strong> Driven by upfront design decisions approved by leadership.</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-[#F59E0B] font-bold mt-0.5">•</span>
+                            <span><strong>Operational:</strong> Influenced by day-to-day usage patterns and governance discipline.</span>
+                          </li>
+                        </ul>
+                      </div>
+                      
+                      <div className="border-t border-gray-200 pt-6">
+                        <h5 className="font-medium text-gray-800 mb-3">3. Forecast Risk – Confidence in the estimate:</h5>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Represents the likelihood that actual costs will differ from projections.
+                        </p>
+                        <ul className="text-sm text-gray-600 space-y-2 ml-4">
+                          <li className="flex items-start gap-2">
+                            <span className="text-[#F59E0B] font-bold mt-0.5">•</span>
+                            <span><strong>Low risk:</strong> Estimates grounded in historical usage and proven patterns.</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-[#F59E0B] font-bold mt-0.5">•</span>
+                            <span><strong>High risk:</strong> Estimates dependent on assumptions about future growth, behavior, or adoption.</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Confidence Scores */}
+                  <div className="border-t border-gray-200 pt-6">
+                    <h4 className="font-semibold text-gray-900 mb-4 text-lg">Confidence Scores</h4>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Rating system for confidence in estimates, from 1 (Very Low) to 5 (Very High):
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-3">
+                        <span className="inline-block px-3 py-1 rounded text-sm font-medium bg-green-200 text-gray-900 min-w-[80px] text-center">5 – Very High</span>
+                        <p className="text-sm text-gray-600 flex-1">Contracted or directly supported by historical data.</p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="inline-block px-3 py-1 rounded text-sm font-medium bg-green-100 text-gray-900 min-w-[80px] text-center">4 – High</span>
+                        <p className="text-sm text-gray-600 flex-1">Strong precedent, limited variability.</p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="inline-block px-3 py-1 rounded text-sm font-medium bg-yellow-100 text-gray-900 min-w-[80px] text-center">3 – Moderate</span>
+                        <p className="text-sm text-gray-600 flex-1">Assumption-based but bounded.</p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="inline-block px-3 py-1 rounded text-sm font-medium bg-orange-200 text-gray-900 min-w-[80px] text-center">2 – Low</span>
+                        <p className="text-sm text-gray-600 flex-1">High variability or indirect estimation.</p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="inline-block px-3 py-1 rounded text-sm font-medium bg-red-200 text-gray-900 min-w-[80px] text-center">1 – Very Low</span>
+                        <p className="text-sm text-gray-600 flex-1">Forward-looking, decision-dependent, or speculative.</p>
+                      </div>
+                    </div>
+                    
+                    {/* Reminder */}
+                    <div className="border-t border-gray-200 pt-4 mt-4">
+                      <p className="text-sm text-gray-600 italic">
+                        <strong>Reminder:</strong> Confidence ≠ importance. Low confidence items deserve more attention, not dismissal.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* 8. Questions & Answers */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden border-2 border-green-500" style={{ boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '2px solid #22c55e' }}>
               <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-4" style={{ backgroundColor: '#22c55e', color: 'white', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
@@ -3509,7 +4090,7 @@ export default function AnalysisForm() {
               
               <div className="p-6">
                 <div className="space-y-6">
-                  {editableContent.qa.map((item, index) => {
+                  {(editableContent?.qa || []).map((item, index) => {
                     const itemKey = `qa-${index}`;
                     const isEditing = isEditMode && editingItems[itemKey];
                     return (
@@ -3600,7 +4181,7 @@ export default function AnalysisForm() {
               
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {editableContent.terms.map((term, index) => {
+                  {(editableContent?.terms || []).map((term, index) => {
                     const itemKey = `term-${index}`;
                     const isEditing = isEditMode && editingItems[itemKey];
                     return (
@@ -3694,6 +4275,8 @@ export default function AnalysisForm() {
             </div>
           </div>
         )}
+          </>
+        ) : null}
       </div>
     </div>
   );

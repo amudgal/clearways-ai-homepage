@@ -9,6 +9,7 @@ const express_1 = __importDefault(require("express"));
 const database_1 = require("../config/database");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const emailService_1 = require("../services/emailService");
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const router = express_1.default.Router();
 // Send OTP
 router.post('/otp/send', async (req, res) => {
@@ -138,9 +139,11 @@ router.post('/otp/verify', async (req, res) => {
         const token = jsonwebtoken_1.default.sign(payload, secret, { expiresIn });
         // Clean up OTP
         await database_1.pool.query('DELETE FROM site_otp_store WHERE email = $1', [email]);
-        // Audit log
-        await database_1.pool.query(`INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, metadata)
-       VALUES ($1, $2, $3, $4, $5)`, [userId, tenantId, 'LOGIN', 'user', JSON.stringify({ email })]);
+        // Audit log - only log OTP logins from non-clearways.ai domains
+        if (domain !== 'clearways.ai') {
+            await database_1.pool.query(`INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, metadata)
+         VALUES ($1, $2, $3, $4, $5)`, [userId, tenantId, 'LOGIN', 'user', JSON.stringify({ email, method: 'OTP', domain })]);
+        }
         res.json({
             success: true,
             user: userResult.rows[0],
@@ -166,7 +169,7 @@ router.get('/me', async (req, res) => {
             throw new Error('JWT_SECRET not configured');
         }
         const decoded = jsonwebtoken_1.default.verify(token, secret);
-        const result = await database_1.pool.query(`SELECT id, email, domain, tenant_id, role, created_at, last_login_at
+        const result = await database_1.pool.query(`SELECT id, email, username, domain, tenant_id, role, created_at, last_login_at
        FROM site_users 
        WHERE id = $1`, [decoded.userId]);
         if (result.rows.length === 0) {
@@ -180,6 +183,58 @@ router.get('/me', async (req, res) => {
         }
         console.error('Get user error:', error);
         res.status(500).json({ error: 'Failed to get user' });
+    }
+});
+// Credential-based login (username/password)
+router.post('/credentials/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username and password required' });
+        }
+        // Find user by username
+        const userResult = await database_1.pool.query(`SELECT id, email, username, password_hash, tenant_id, role, domain
+       FROM site_users 
+       WHERE username = $1 AND password_hash IS NOT NULL`, [username]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+        const user = userResult.rows[0];
+        // Verify password
+        const passwordMatch = await bcryptjs_1.default.compare(password, user.password_hash);
+        if (!passwordMatch) {
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+        // Update last login
+        await database_1.pool.query('UPDATE site_users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
+        // Generate JWT token
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+            throw new Error('JWT_SECRET not configured');
+        }
+        const payload = { userId: String(user.id) };
+        const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
+        const token = jsonwebtoken_1.default.sign(payload, secret, { expiresIn });
+        // Audit log
+        await database_1.pool.query(`INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, metadata)
+       VALUES ($1, $2, $3, $4, $5)`, [user.id, user.tenant_id, 'LOGIN', 'user', JSON.stringify({ username, method: 'CREDENTIALS' })]);
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                email: user.email,
+                username: user.username,
+                tenant_id: user.tenant_id,
+                role: user.role,
+                domain: user.domain,
+            },
+            token,
+            message: 'Authentication successful',
+        });
+    }
+    catch (error) {
+        console.error('Credential login error:', error);
+        res.status(500).json({ error: 'Authentication failed' });
     }
 });
 exports.default = router;

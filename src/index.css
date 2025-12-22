@@ -1861,3 +1861,23 @@ html {
   inherits: false;
   initial-value: 1;
 }
+
+/* Prevent browser extension overlays from blocking input */
+lpop-container,
+[data-lpop-container],
+[data-lpop-os],
+[data-lpop-adapter-name] {
+  pointer-events: none !important;
+}
+
+lpop-container > *,
+[data-lpop-container] > * {
+  pointer-events: none !important;
+}
+
+/* Ensure textareas and inputs are always interactive */
+textarea:focus,
+input:focus {
+  position: relative;
+  z-index: 9999;
+}
