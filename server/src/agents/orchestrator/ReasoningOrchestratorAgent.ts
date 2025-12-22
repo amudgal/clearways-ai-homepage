@@ -4,10 +4,7 @@
 import { BaseAgent } from '../base/BaseAgent';
 import { AgentResult, AgentContext, Entity, EmailCandidate, ExplanationEvent } from '../types';
 import { LLMReasoningService, DiscoveryStrategy } from '../../services/llmService';
-import { pool } from '../../config/database';
-
-// Import sub-agents (we'll create these next)
-// import { RocLookupAgent } from '../roc/RocLookupAgent';
+import { RocLookupAgent } from '../roc/RocLookupAgent';
 // import { SearchDiscoveryAgent } from '../search/SearchDiscoveryAgent';
 // import { ScrapeExtractionAgent } from '../scrape/ScrapeExtractionAgent';
 // import { EmailValidationAgent } from '../validation/EmailValidationAgent';
@@ -17,36 +14,16 @@ import { pool } from '../../config/database';
 export class ReasoningOrchestratorAgent extends BaseAgent {
   private llmService: LLMReasoningService;
   private useLLM: boolean;
-
-  // Sub-agents will be injected
-  // private rocLookup: RocLookupAgent;
-  // private searchDiscovery: SearchDiscoveryAgent;
-  // private scrapeExtraction: ScrapeExtractionAgent;
-  // private emailValidation: EmailValidationAgent;
-  // private compliance: ComplianceAgent;
-  // private costMetering: CostMeteringAgent;
+  private rocLookup: RocLookupAgent;
 
   constructor(
     context: AgentContext,
     eventEmitter: any, // EventEmitter
-    // Sub-agents will be passed here
-    // rocLookup: RocLookupAgent,
-    // searchDiscovery: SearchDiscoveryAgent,
-    // scrapeExtraction: ScrapeExtractionAgent,
-    // emailValidation: EmailValidationAgent,
-    // compliance: ComplianceAgent,
-    // costMetering: CostMeteringAgent,
   ) {
     super(context, eventEmitter);
     this.llmService = new LLMReasoningService();
     this.useLLM = context.preferences.useLLM !== false && this.llmService.isAvailable();
-    
-    // this.rocLookup = rocLookup;
-    // this.searchDiscovery = searchDiscovery;
-    // this.scrapeExtraction = scrapeExtraction;
-    // this.emailValidation = emailValidation;
-    // this.compliance = compliance;
-    // this.costMetering = costMetering;
+    this.rocLookup = new RocLookupAgent(context, eventEmitter);
 
     if (this.useLLM) {
       this.emitEvent({
@@ -145,48 +122,56 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
    * Step 1: ROC Lookup (Deterministic)
    */
   private async performROCLookup(): Promise<AgentResult> {
-    // TODO: Implement ROC lookup agent
-    // For now, return mock data
-    this.emitEvent({
-      ts: new Date().toISOString(),
-      level: 'info',
-      agent: 'RocLookup',
-      summary: `Looking up ROC ${this.context.contractorInput.rocNumber}`,
-    });
-
-    // Mock implementation - replace with actual ROC lookup
-    return {
-      success: true,
-      data: {
-        id: `entity-${Date.now()}`,
-        rocNumber: this.context.contractorInput.rocNumber,
-        contractorName: this.context.contractorInput.contractorName,
-        officialWebsite: this.context.contractorInput.website,
-        city: this.context.contractorInput.city,
-      } as Entity,
-      cost: 0,
-    };
+    // Use actual ROC lookup agent
+    return await this.rocLookup.execute();
   }
 
   /**
-   * Step 2: Decide Strategy (Hybrid - LLM or Deterministic)
+   * Step 2: Decide Strategy using LLM based on ROC data (Hybrid - LLM or Deterministic)
    */
   private async decideStrategy(contractorEntity: Entity): Promise<DiscoveryStrategy> {
+    // Extract city from address if available
+    const city = contractorEntity.address 
+      ? contractorEntity.address.split(',').find(part => part.trim().match(/^[A-Za-z\s]+$/))?.trim() || 
+        contractorEntity.address.split(',')[0]?.trim()
+      : this.context.contractorInput.city;
+
     if (this.useLLM) {
-      // Use LLM for strategic decision
+      // Use LLM for strategic decision based on ROC data
+      this.emitEvent({
+        ts: new Date().toISOString(),
+        level: 'info',
+        agent: 'ReasoningOrchestrator',
+        summary: 'Using LLM to plan email discovery strategy from ROC data',
+      });
+
       return await this.llmService.decideStrategy({
         contractorName: contractorEntity.contractorName,
         rocNumber: contractorEntity.rocNumber,
-        city: contractorEntity.address?.split(',')[0], // Extract city from address
+        city: city,
         hasOfficialWebsite: !!contractorEntity.officialWebsite,
-        rocData: contractorEntity,
+        rocData: {
+          businessName: contractorEntity.businessName,
+          website: contractorEntity.officialWebsite,
+          address: contractorEntity.address,
+          phone: contractorEntity.phone,
+          classification: contractorEntity.classification,
+          licenseStatus: contractorEntity.licenseStatus,
+        },
       });
     } else {
       // Fallback to deterministic
+      this.emitEvent({
+        ts: new Date().toISOString(),
+        level: 'info',
+        agent: 'ReasoningOrchestrator',
+        summary: 'Using deterministic strategy (LLM not available)',
+      });
+
       return this.llmService.deterministicStrategy({
         contractorName: contractorEntity.contractorName,
         rocNumber: contractorEntity.rocNumber,
-        city: contractorEntity.address?.split(',')[0],
+        city: city,
         hasOfficialWebsite: !!contractorEntity.officialWebsite,
       });
     }
@@ -218,12 +203,16 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
 
     // Priority 2: Web search (if strategy allows)
     if (strategy.approach === 'search-first' || strategy.approach === 'hybrid') {
-      // Generate queries (LLM or deterministic)
+      // Generate queries using LLM based on ROC data
       const queries = this.useLLM
         ? await this.llmService.generateSearchQueries({
             contractorName: contractorEntity.contractorName,
             rocNumber: contractorEntity.rocNumber,
-            city: contractorEntity.address?.split(',')[0],
+            city: contractorEntity.address?.split(',')[0] || this.context.contractorInput.city,
+            classification: contractorEntity.classification,
+            businessName: contractorEntity.businessName,
+            address: contractorEntity.address,
+            phone: contractorEntity.phone,
           })
         : strategy.searchQueries;
 

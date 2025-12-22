@@ -42,7 +42,7 @@ export class LLMReasoningService {
   }
 
   /**
-   * Decide discovery strategy using LLM
+   * Decide discovery strategy using LLM based on ROC data
    * Falls back to deterministic if LLM unavailable
    */
   async decideStrategy(context: {
@@ -50,7 +50,14 @@ export class LLMReasoningService {
     rocNumber: string;
     city?: string;
     hasOfficialWebsite: boolean;
-    rocData?: any;
+    rocData?: {
+      businessName?: string;
+      website?: string;
+      address?: string;
+      phone?: string;
+      classification?: string;
+      licenseStatus?: string;
+    };
   }): Promise<DiscoveryStrategy> {
     if (!this.isAvailable()) {
       return this.deterministicStrategy(context);
@@ -62,35 +69,48 @@ export class LLMReasoningService {
         messages: [
           {
             role: 'system',
-            content: `You are a reasoning agent that decides the best strategy to discover contractor contact emails.
-            
-Your goal: Find verified email addresses for Arizona ROC contractors efficiently.
+            content: `You are a reasoning agent that plans how to discover contractor email addresses from Arizona ROC contractor data.
+
+Your goal: Analyze ROC contractor information and create a strategic plan to find their contact email.
 
 Available approaches:
-- roc-first: Start with ROC official website, then search
-- search-first: Start with web search, then verify
-- hybrid: Use both ROC and search in parallel
+- roc-first: Start with ROC official website, then search other sources
+- search-first: Start with web search using contractor details, then verify
+- hybrid: Use both ROC website and web search in parallel
 - official-only: Only use official ROC website (fastest, most authoritative)
+
+ROC Data Analysis:
+- Use business name, contractor name, classification, and address to generate intelligent search queries
+- If official website exists, prioritize it
+- Consider contractor type (e.g., "General Contractor", "Plumbing", "Electrical") when generating queries
+- Use city/address information to narrow searches
 
 Return JSON with:
 {
   "approach": "roc-first" | "search-first" | "hybrid" | "official-only",
   "searchQueries": ["query1", "query2", ...],
   "maxUrls": 10,
-  "prioritySources": ["roc", "official-website", "linkedin", ...],
-  "reasoning": "Brief explanation of why this strategy",
+  "prioritySources": ["roc", "official-website", "linkedin", "business-directories", ...],
+  "reasoning": "Brief explanation of why this strategy based on ROC data",
   "confidence": 0.85
 }`,
           },
           {
             role: 'user',
-            content: `Contractor: ${context.contractorName}
-ROC Number: ${context.rocNumber}
-City: ${context.city || 'unknown'}
-Has official website from ROC: ${context.hasOfficialWebsite}
-ROC Data available: ${context.rocData ? 'Yes' : 'No'}
+            content: `ROC Contractor Information:
+- Contractor Name: ${context.contractorName}
+- ROC Number: ${context.rocNumber}
+- Business Name: ${context.rocData?.businessName || 'Not provided'}
+- Official Website: ${context.rocData?.website || 'Not available'}
+- Address: ${context.rocData?.address || context.city || 'Unknown'}
+- Phone: ${context.rocData?.phone || 'Not provided'}
+- Classification: ${context.rocData?.classification || 'Unknown'}
+- License Status: ${context.rocData?.licenseStatus || 'Unknown'}
 
-Decide the best discovery strategy.`,
+Plan the best strategy to discover their email address. Consider:
+1. If official website exists, how to extract email from it
+2. What search queries would be most effective given the contractor type and location
+3. Which sources (LinkedIn, business directories, etc.) are most likely to have contact info for this type of contractor`,
           },
         ],
         response_format: { type: 'json_object' },
@@ -125,13 +145,16 @@ Decide the best discovery strategy.`,
   }
 
   /**
-   * Generate intelligent search queries using LLM
+   * Generate intelligent search queries using LLM based on ROC data
    */
   async generateSearchQueries(context: {
     contractorName: string;
     rocNumber: string;
     city?: string;
     classification?: string;
+    businessName?: string;
+    address?: string;
+    phone?: string;
   }): Promise<string[]> {
     if (!this.isAvailable()) {
       return this.generateDefaultQueries(context);
@@ -143,17 +166,32 @@ Decide the best discovery strategy.`,
         messages: [
           {
             role: 'system',
-            content: `Generate 3-5 effective web search queries to find contact information for an Arizona contractor.
-Return JSON array of query strings: ["query1", "query2", ...]`,
+            content: `Generate 3-5 effective web search queries to find contact email for an Arizona ROC contractor.
+
+Use the ROC data to create intelligent, specific queries that will find:
+- Their business website
+- Contact pages
+- Email addresses
+- LinkedIn profiles
+- Business directory listings
+
+Return JSON with queries array: {"queries": ["query1", "query2", ...]}`,
           },
           {
             role: 'user',
-            content: `Contractor: ${context.contractorName}
-ROC: ${context.rocNumber}
-City: ${context.city || 'Arizona'}
-Classification: ${context.classification || 'General contractor'}
+            content: `ROC Contractor Details:
+- Contractor Name: ${context.contractorName}
+- Business Name: ${context.businessName || 'Not provided'}
+- ROC Number: ${context.rocNumber}
+- City/Location: ${context.city || context.address || 'Arizona'}
+- Classification: ${context.classification || 'General contractor'}
+- Phone: ${context.phone || 'Not provided'}
 
-Generate search queries that will find their website, contact page, or email.`,
+Generate search queries that will effectively find their contact email. Consider:
+- Using business name if different from contractor name
+- Including classification/type of contractor
+- Using location to narrow results
+- Variations that might find LinkedIn, directories, or contact pages`,
           },
         ],
         response_format: { type: 'json_object' },
