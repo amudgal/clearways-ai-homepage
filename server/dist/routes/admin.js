@@ -6,9 +6,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const database_1 = require("../config/database");
 const auth_1 = require("../middleware/auth");
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const router = express_1.default.Router();
 // All routes require admin access
 router.use(auth_1.authenticate);
@@ -600,6 +600,155 @@ router.get('/analyses', async (req, res) => {
     catch (error) {
         console.error('Get all analyses error:', error);
         res.status(500).json({ error: 'Failed to fetch analyses' });
+    }
+});
+// Delete all versions for all analyses of a specific tenant (admin only)
+router.delete('/analyses/tenant/:tenantId/versions', async (req, res) => {
+    try {
+        const { tenantId } = req.params;
+        const adminUserId = req.user.id;
+        // Verify tenant exists
+        const tenantResult = await database_1.pool.query('SELECT id, name FROM site_tenants WHERE id = $1', [tenantId]);
+        if (tenantResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Tenant not found' });
+        }
+        const tenantName = tenantResult.rows[0].name;
+        // Get all analyses for this tenant
+        const analysesResult = await database_1.pool.query('SELECT id FROM site_analyses WHERE tenant_id = $1', [tenantId]);
+        const analysisIds = analysesResult.rows.map(row => row.id);
+        let totalDeletedVersions = 0;
+        if (analysisIds.length > 0) {
+            // Delete all versions for all analyses of this tenant
+            const deleteResult = await database_1.pool.query(`DELETE FROM site_analysis_versions 
+         WHERE analysis_id = ANY($1::uuid[])
+         RETURNING version_number, analysis_id`, [analysisIds]);
+            totalDeletedVersions = deleteResult.rows.length;
+            // Reset current_version_number to 0 for all analyses
+            await database_1.pool.query('UPDATE site_analyses SET current_version_number = 0 WHERE tenant_id = $1', [tenantId]);
+        }
+        // Audit log
+        await database_1.pool.query(`INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, target_id, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6)`, [
+            adminUserId,
+            tenantId,
+            'DELETE_ALL_TENANT_VERSIONS',
+            'tenant',
+            tenantId,
+            JSON.stringify({
+                tenant_name: tenantName,
+                analyses_count: analysisIds.length,
+                deleted_versions_count: totalDeletedVersions
+            })
+        ]);
+        res.json({
+            success: true,
+            message: `Deleted all versions for ${analysisIds.length} analysis/analyses for tenant ${tenantName}`,
+            tenantName,
+            analysesCount: analysisIds.length,
+            deletedVersionsCount: totalDeletedVersions,
+        });
+    }
+    catch (error) {
+        console.error('Delete all tenant versions error:', error);
+        res.status(500).json({ error: 'Failed to delete tenant versions' });
+    }
+});
+// Update analysis (admin only - can edit title, etc.)
+router.put('/analyses/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title, status } = req.body;
+        const adminUserId = req.user.id;
+        // Verify analysis exists
+        const analysisCheck = await database_1.pool.query('SELECT id, title, status, tenant_id FROM site_analyses WHERE id = $1', [id]);
+        if (analysisCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Analysis not found' });
+        }
+        const oldTitle = analysisCheck.rows[0].title;
+        const oldStatus = analysisCheck.rows[0].status;
+        const tenantId = analysisCheck.rows[0].tenant_id;
+        // Build update query dynamically
+        const updates = [];
+        const values = [];
+        let paramIndex = 1;
+        if (title !== undefined) {
+            updates.push(`title = $${paramIndex++}`);
+            values.push(title);
+        }
+        if (status !== undefined) {
+            // Validate status
+            if (!['LIVE', 'SAVED', 'LOCKED'].includes(status)) {
+                return res.status(400).json({ error: 'Invalid status. Must be LIVE, SAVED, or LOCKED' });
+            }
+            updates.push(`status = $${paramIndex++}`);
+            values.push(status);
+        }
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+        updates.push(`updated_at = CURRENT_TIMESTAMP`);
+        values.push(id);
+        // Update analysis
+        const updateQuery = `UPDATE site_analyses SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+        const result = await database_1.pool.query(updateQuery, values);
+        // Log the change
+        await database_1.pool.query(`INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, target_id, metadata)
+       VALUES ($1, $2, 'UPDATE_ANALYSIS', 'analysis', $3, $4)`, [
+            adminUserId,
+            tenantId,
+            id,
+            JSON.stringify({
+                old_title: oldTitle,
+                new_title: title !== undefined ? title : oldTitle,
+                old_status: oldStatus,
+                new_status: status !== undefined ? status : oldStatus,
+                admin_action: true
+            })
+        ]);
+        res.json({
+            success: true,
+            message: 'Analysis updated successfully',
+            analysis: result.rows[0]
+        });
+    }
+    catch (error) {
+        console.error('Update analysis error:', error);
+        res.status(500).json({ error: 'Failed to update analysis' });
+    }
+});
+// Delete analysis (admin only)
+router.delete('/analyses/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const adminUserId = req.user.id;
+        // Verify analysis exists and get details for audit log
+        const analysisCheck = await database_1.pool.query('SELECT id, title, tenant_id FROM site_analyses WHERE id = $1', [id]);
+        if (analysisCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Analysis not found' });
+        }
+        const analysis = analysisCheck.rows[0];
+        const tenantId = analysis.tenant_id;
+        // Delete analysis (cascade will delete related inputs, results, versions)
+        await database_1.pool.query('DELETE FROM site_analyses WHERE id = $1', [id]);
+        // Log the deletion
+        await database_1.pool.query(`INSERT INTO site_audit_logs (user_id, tenant_id, action, target_type, target_id, metadata)
+       VALUES ($1, $2, 'DELETE_ANALYSIS', 'analysis', $3, $4)`, [
+            adminUserId,
+            tenantId,
+            id,
+            JSON.stringify({
+                title: analysis.title,
+                admin_action: true
+            })
+        ]);
+        res.json({
+            success: true,
+            message: 'Analysis deleted successfully'
+        });
+    }
+    catch (error) {
+        console.error('Delete analysis error:', error);
+        res.status(500).json({ error: 'Failed to delete analysis' });
     }
 });
 // Update analysis tenant assignment (admin only)

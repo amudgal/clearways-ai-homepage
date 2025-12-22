@@ -1,0 +1,5 @@
+branch-defaults:
+  default:
+    environment: clearways-ai-backend-env
+global:
+  profile: null

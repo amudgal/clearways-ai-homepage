@@ -2,6 +2,7 @@
 // Pricing management and admin operations
 
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import { pool } from '../config/database';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 
