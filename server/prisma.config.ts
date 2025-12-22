@@ -2,22 +2,25 @@
 // Connection URLs are now configured here instead of in schema.prisma
 // Uses the existing PostgreSQL database configured via DB_* variables or DATABASE_URL
 
+// Import helper to build DATABASE_URL before Prisma reads it
+import './src/config/buildDatabaseUrl';
+
 import dotenv from 'dotenv';
 import { resolve } from 'path';
 import { defineConfig } from 'prisma/config';
 
 // Explicitly load .env file - try multiple possible locations
+// When running from server/ directory, process.cwd() will be server/
 const envPaths = [
-  resolve(process.cwd(), '.env'),           // Current directory (server/)
-  resolve(process.cwd(), '../.env'),        // Parent directory
-  resolve(__dirname || process.cwd(), '.env'), // Fallback
+  resolve(process.cwd(), '.env'),           // server/.env (when running from server/)
+  resolve(process.cwd(), '../.env'),        // .env in parent directory
 ];
 
 let envLoaded = false;
 for (const envPath of envPaths) {
   try {
-    const result = dotenv.config({ path: envPath });
-    if (!result.error && result.parsed) {
+    const result = dotenv.config({ path: envPath, override: false });
+    if (!result.error) {
       envLoaded = true;
       console.log(`✅ Loaded .env from: ${envPath}`);
       break;
@@ -28,7 +31,7 @@ for (const envPath of envPaths) {
 }
 
 if (!envLoaded) {
-  console.warn('⚠️  Could not find .env file in standard locations. Using process.env directly.');
+  console.warn('⚠️  Could not find .env file. Trying default location...');
   dotenv.config(); // Try default location as fallback
 }
 
