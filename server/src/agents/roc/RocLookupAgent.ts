@@ -93,9 +93,8 @@ export class RocLookupAgent extends BaseAgent {
   }
 
   /**
-   * Query ROC database
-   * TODO: Implement actual ROC API integration or database query
-   * For now, this is a placeholder that simulates ROC data
+   * Query ROC database from official Arizona ROC website
+   * https://azroc.my.site.com/AZRoc/s/contractor-search
    */
   private async queryROCDatabase(rocNumber: string, contractorName: string): Promise<any> {
     // Option 1: Query from your own database if you've imported ROC data
@@ -129,20 +128,135 @@ export class RocLookupAgent extends BaseAgent {
         };
       }
     } catch (error) {
-      console.log('[RocLookup] Database query failed, trying alternative methods:', error);
+      console.log('[RocLookup] Database query failed, trying official ROC website:', error);
     }
 
-    // Option 2: Call Arizona ROC API (if available)
-    // const response = await fetch(`https://roc.az.gov/api/contractors/${rocNumber}`);
-    // if (response.ok) {
-    //   return await response.json();
-    // }
+    // Option 2: Scrape official Arizona ROC contractor search website
+    // https://azroc.my.site.com/AZRoc/s/contractor-search
+    try {
+      const rocSearchUrl = `https://azroc.my.site.com/AZRoc/s/contractor-search`;
+      
+      this.emitEvent({
+        ts: new Date().toISOString(),
+        level: 'info',
+        agent: 'RocLookup',
+        summary: `Querying official ROC website: ${rocSearchUrl} for ROC ${rocNumber}`,
+      });
 
-    // Option 3: Web scrape ROC website (as fallback)
-    // This would require implementing a scraper for https://roc.az.gov
+      // Use Playwright to scrape the ROC search page
+      // Note: This requires Playwright to be installed and configured
+      const { chromium } = require('playwright');
+      const browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage();
 
-    // For now, return null if not found
-    return null;
+      try {
+        // Navigate to ROC search page
+        await page.goto(rocSearchUrl, { waitUntil: 'networkidle', timeout: 30000 });
+
+        // Wait for search form to load
+        await page.waitForSelector('input[type="search"], input[name*="search"], input[id*="search"]', { timeout: 10000 });
+
+        // Fill in ROC number and submit
+        const searchInput = await page.$('input[type="search"], input[name*="search"], input[id*="search"], input[placeholder*="ROC"]');
+        if (searchInput) {
+          await searchInput.fill(rocNumber);
+          await page.keyboard.press('Enter');
+          
+          // Wait for results
+          await page.waitForTimeout(2000);
+          
+          // Extract contractor information from results page
+          const contractorData = await page.evaluate((rocNum) => {
+            // Try to find contractor information in the page
+            const data: any = { rocNumber: rocNum };
+            
+            // Look for common selectors in Salesforce-based sites
+            const nameElement = document.querySelector('[data-label*="Name"], .slds-text-heading, h1, h2, .contractor-name');
+            if (nameElement) {
+              data.contractorName = nameElement.textContent?.trim();
+            }
+
+            const businessElement = document.querySelector('[data-label*="Business"], .business-name');
+            if (businessElement) {
+              data.businessName = businessElement.textContent?.trim();
+            }
+
+            const addressElement = document.querySelector('[data-label*="Address"], .address');
+            if (addressElement) {
+              data.address = addressElement.textContent?.trim();
+            }
+
+            const phoneElement = document.querySelector('[data-label*="Phone"], .phone, a[href^="tel:"]');
+            if (phoneElement) {
+              data.phone = phoneElement.textContent?.trim() || phoneElement.getAttribute('href')?.replace('tel:', '');
+            }
+
+            const websiteElement = document.querySelector('[data-label*="Website"], .website, a[href^="http"]');
+            if (websiteElement) {
+              data.website = websiteElement.textContent?.trim() || websiteElement.getAttribute('href');
+            }
+
+            const classificationElement = document.querySelector('[data-label*="Classification"], .classification');
+            if (classificationElement) {
+              data.classification = classificationElement.textContent?.trim();
+            }
+
+            const statusElement = document.querySelector('[data-label*="Status"], .status, .license-status');
+            if (statusElement) {
+              data.licenseStatus = statusElement.textContent?.trim();
+            }
+
+            return Object.keys(data).length > 1 ? data : null;
+          }, rocNumber);
+
+          await browser.close();
+
+          if (contractorData) {
+            this.emitEvent({
+              ts: new Date().toISOString(),
+              level: 'success',
+              agent: 'RocLookup',
+              summary: `Found contractor data from official ROC website`,
+            });
+
+            return {
+              rocNumber: contractorData.rocNumber || rocNumber,
+              contractorName: contractorData.contractorName || contractorName,
+              businessName: contractorData.businessName,
+              website: contractorData.website,
+              address: contractorData.address,
+              phone: contractorData.phone,
+              classification: contractorData.classification,
+              licenseStatus: contractorData.licenseStatus,
+            };
+          }
+        }
+      } catch (scrapeError) {
+        console.error('[RocLookup] Failed to scrape ROC website:', scrapeError);
+        await browser.close();
+      }
+    } catch (error) {
+      console.error('[RocLookup] ROC website scraping not available:', error);
+    }
+
+    // Option 3: Fallback - return basic data from input
+    this.emitEvent({
+      ts: new Date().toISOString(),
+      level: 'warning',
+      agent: 'RocLookup',
+      summary: `Could not query ROC database. Using provided contractor name.`,
+    });
+
+    return {
+      rocNumber,
+      contractorName,
+      businessName: null,
+      website: null,
+      address: null,
+      phone: null,
+      classification: null,
+      licenseStatus: null,
+    };
   }
 
   /**

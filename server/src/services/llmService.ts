@@ -73,15 +73,25 @@ export class LLMReasoningService {
 
 Your goal: Analyze ROC contractor information and create a strategic plan to find their contact email.
 
+IMPORTANT: The official Arizona ROC contractor search website is:
+https://azroc.my.site.com/AZRoc/s/contractor-search
+
+This is the authoritative source for ROC contractor information. You can search by ROC number to get:
+- Contractor name, business name
+- License status and classification
+- Address and contact information
+- Official website (if available)
+
 Available approaches:
-- roc-first: Start with ROC official website, then search other sources
+- roc-first: Start with ROC official website (https://azroc.my.site.com/AZRoc/s/contractor-search), then search other sources
 - search-first: Start with web search using contractor details, then verify
 - hybrid: Use both ROC website and web search in parallel
 - official-only: Only use official ROC website (fastest, most authoritative)
 
 ROC Data Analysis:
+- ALWAYS prioritize the official ROC search site: https://azroc.my.site.com/AZRoc/s/contractor-search
 - Use business name, contractor name, classification, and address to generate intelligent search queries
-- If official website exists, prioritize it
+- If official website exists from ROC data, prioritize it
 - Consider contractor type (e.g., "General Contractor", "Plumbing", "Electrical") when generating queries
 - Use city/address information to narrow searches
 
@@ -90,7 +100,7 @@ Return JSON with:
   "approach": "roc-first" | "search-first" | "hybrid" | "official-only",
   "searchQueries": ["query1", "query2", ...],
   "maxUrls": 10,
-  "prioritySources": ["roc", "official-website", "linkedin", "business-directories", ...],
+  "prioritySources": ["roc-website", "official-website", "linkedin", "business-directories", ...],
   "reasoning": "Brief explanation of why this strategy based on ROC data",
   "confidence": 0.85
 }`,
@@ -107,10 +117,16 @@ Return JSON with:
 - Classification: ${context.rocData?.classification || 'Unknown'}
 - License Status: ${context.rocData?.licenseStatus || 'Unknown'}
 
+IMPORTANT: The official Arizona ROC contractor search is at:
+https://azroc.my.site.com/AZRoc/s/contractor-search
+
+You can search by ROC number ${context.rocNumber} to get complete contractor details.
+
 Plan the best strategy to discover their email address. Consider:
-1. If official website exists, how to extract email from it
-2. What search queries would be most effective given the contractor type and location
-3. Which sources (LinkedIn, business directories, etc.) are most likely to have contact info for this type of contractor`,
+1. First, query the official ROC site (https://azroc.my.site.com/AZRoc/s/contractor-search) using ROC number ${context.rocNumber}
+2. If official website exists from ROC data, how to extract email from it
+3. What search queries would be most effective given the contractor type and location
+4. Which sources (LinkedIn, business directories, etc.) are most likely to have contact info for this type of contractor`,
           },
         ],
         response_format: { type: 'json_object' },
