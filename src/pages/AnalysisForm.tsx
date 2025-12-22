@@ -3011,7 +3011,7 @@ export default function AnalysisForm() {
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                              {section.components.map((component) => {
+                              {(section.components || []).map((component) => {
                                 // Default to blank for:
                                 // 1. Components with only one tier option
                                 // 2. Compute (GKE) - always default to blank
@@ -3064,15 +3064,15 @@ export default function AnalysisForm() {
                                             4. Cloud Storage
                                             5. Database
                                             6. Data Egress */}
-                                        {(component.tierOptions.length === 1 || 
+                                        {((tierOptions.length === 1 || 
                                           component.id === 'compute-gke' || 
                                           component.id === 'memory-ram' || 
                                           component.id === 'storage' ||
                                           component.id === 'database' ||
                                           component.id === 'data-egress') && (
                                           <option value="">-- Select --</option>
-                                        )}
-                                        {component.tierOptions.map((tier) => (
+                                        ))}
+                                        {(component.tierOptions || []).map((tier) => (
                                           <option key={tier} value={tier}>{tier}</option>
                                         ))}
                                       </select>
