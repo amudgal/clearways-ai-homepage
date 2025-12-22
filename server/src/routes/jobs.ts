@@ -1,11 +1,68 @@
 // Jobs API Routes - Agent system job management
 import express from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { JobQueueService } from '../services/jobQueue';
 import { prisma } from '../config/prisma';
 
 const router = express.Router();
-const jobQueue = new JobQueueService();
+
+// Simple job queue service (placeholder - implement full JobQueueService if needed)
+class SimpleJobQueue {
+  async addJob(jobId: string, contractorRows: any[], preferences: any, createdBy: string) {
+    // Create job in database
+    const job = await prisma.job.create({
+      data: {
+        id: jobId,
+        createdBy: createdBy,
+        status: 'pending',
+        preferences: preferences as any,
+        contractorRows: {
+          createMany: {
+            data: contractorRows.map((row, index) => ({
+              rocNumber: row.rocNumber || '',
+              contractorName: row.contractorName || '',
+              licenseStatus: row.licenseStatus,
+              classification: row.classification,
+              city: row.city,
+              phone: row.phone,
+              website: row.website,
+              rowIndex: index,
+            })),
+          },
+        },
+      },
+    });
+    return { id: jobId };
+  }
+
+  async getJobStatus(jobId: string) {
+    return await prisma.job.findUnique({
+      where: { id: jobId },
+      include: {
+        contractorRows: true,
+        entities: {
+          include: {
+            emailCandidates: {
+              include: {
+                evidence: true,
+              },
+            },
+            evidence: true,
+          },
+        },
+        visitedSites: true,
+        costLineItems: true,
+      },
+    });
+  }
+
+  getEventEmitter(jobId: string) {
+    // Return a simple event emitter (placeholder)
+    const EventEmitter = require('events');
+    return new EventEmitter();
+  }
+}
+
+const jobQueue = new SimpleJobQueue();
 
 // Upload contractor data and create job
 router.post('/upload', authenticate, async (req: AuthRequest, res) => {
