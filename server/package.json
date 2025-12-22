@@ -15,6 +15,7 @@
     "add-analysis-type": "tsx src/db/add_analysis_type.ts",
     "add-created-by-to-versions": "tsx src/db/add_created_by_to_versions.ts",
     "delete-amex-versions": "tsx src/db/delete_amex_versions.ts",
+    "create-knowledge-tables": "tsx src/db/create_knowledge_tables.ts",
     "seed": "tsx src/db/seed.ts"
   },
   "dependencies": {

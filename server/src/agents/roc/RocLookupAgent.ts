@@ -2,8 +2,16 @@
 import { BaseAgent } from '../base/BaseAgent';
 import { AgentResult, AgentContext, Entity, Evidence } from '../types';
 import { pool } from '../../config/database';
+import { KnowledgeService } from '../../services/knowledgeService';
 
 export class RocLookupAgent extends BaseAgent {
+  private knowledgeService: KnowledgeService;
+
+  constructor(context: AgentContext, eventEmitter: any) {
+    super(context, eventEmitter);
+    this.knowledgeService = new KnowledgeService();
+  }
+
   async execute(): Promise<AgentResult> {
     try {
       const { rocNumber, contractorName } = this.context.contractorInput;
@@ -15,15 +23,45 @@ export class RocLookupAgent extends BaseAgent {
         summary: `Looking up ROC ${rocNumber} from official Arizona ROC website: https://azroc.my.site.com/AZRoc/s/contractor-search`,
       });
 
-      // Query ROC database (this is a placeholder - you'll need to implement actual ROC API or database)
-      const rocData = await this.queryROCDatabase(rocNumber, contractorName);
+      // First, check if we already have this contractor in knowledge base
+      const existingKnowledge = await this.knowledgeService.getContractorKnowledge(rocNumber);
+      
+      let rocData: any;
+      if (existingKnowledge && existingKnowledge.lastVerified) {
+        // Use cached knowledge if it's recent (less than 30 days old)
+        const daysSinceVerified = (Date.now() - new Date(existingKnowledge.lastVerified).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceVerified < 30) {
+          this.emitEvent({
+            ts: new Date().toISOString(),
+            level: 'info',
+            agent: 'RocLookup',
+            summary: `Using cached contractor knowledge for ROC ${rocNumber} (verified ${Math.floor(daysSinceVerified)} days ago)`,
+          });
+          
+          rocData = {
+            rocNumber: existingKnowledge.rocNumber,
+            contractorName: existingKnowledge.contractorName,
+            businessName: existingKnowledge.businessName,
+            website: existingKnowledge.website,
+            address: existingKnowledge.address,
+            phone: existingKnowledge.phone,
+            classification: existingKnowledge.classification,
+            licenseStatus: existingKnowledge.licenseStatus,
+          };
+        }
+      }
 
+      // If no cached data or it's stale, query ROC database
       if (!rocData) {
+        rocData = await this.queryROCDatabase(rocNumber, contractorName);
+      }
+
+      if (!rocData || !rocData.contractorName) {
         this.emitEvent({
           ts: new Date().toISOString(),
           level: 'warning',
           agent: 'RocLookup',
-          summary: `ROC ${rocNumber} not found in database`,
+          summary: `ROC ${rocNumber} not found or no contractor name available`,
         });
 
         return {
@@ -31,6 +69,24 @@ export class RocLookupAgent extends BaseAgent {
           error: `ROC ${rocNumber} not found`,
           cost: 0,
         };
+      }
+
+      // Store successful capture in knowledge base
+      const hasMeaningfulData = rocData.contractorName && 
+        (rocData.businessName || rocData.website || rocData.address || rocData.phone || rocData.classification);
+      
+      if (hasMeaningfulData) {
+        await this.knowledgeService.storeContractorKnowledge({
+          rocNumber: rocData.rocNumber,
+          contractorName: rocData.contractorName,
+          businessName: rocData.businessName,
+          website: rocData.website,
+          address: rocData.address,
+          phone: rocData.phone,
+          classification: rocData.classification,
+          licenseStatus: rocData.licenseStatus,
+          source: 'roc-website', // or 'database' if from local DB
+        });
       }
 
       // Create entity from ROC data

@@ -15,6 +15,7 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
   private llmService: LLMReasoningService;
   private useLLM: boolean;
   private rocLookup: RocLookupAgent;
+  private knowledgeService: KnowledgeService;
 
   constructor(
     context: AgentContext,
@@ -24,6 +25,7 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
     this.llmService = new LLMReasoningService();
     this.useLLM = context.preferences.useLLM !== false && this.llmService.isAvailable();
     this.rocLookup = new RocLookupAgent(context, eventEmitter);
+    this.knowledgeService = new KnowledgeService();
 
     if (this.useLLM) {
       this.emitEvent({
@@ -276,14 +278,24 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
       summary: `Validating ${emails.length} email addresses`,
     });
 
-    // Mock implementation
-    return {
-      emails: emails.map(email => ({
+    const validatedEmails: EmailCandidate[] = [];
+    const contractorEntity = this.context.currentEntityId 
+      ? await this.getEntityById(this.context.currentEntityId)
+      : null;
+
+    for (const email of emails) {
+      // Skip invalid emails
+      if (!email || email === 'Not Found' || !email.includes('@')) {
+        continue;
+      }
+
+      // TODO: Implement actual email validation
+      const emailCandidate: EmailCandidate = {
         email,
         source: 'unknown',
         sourceUrl: '',
-        confidence: 50,
-        rationale: 'Mock validation',
+        confidence: 50, // Will be calculated by validation agent
+        rationale: 'Validation pending',
         validationSignals: {
           mxRecordExists: false,
           smtpCheck: false,
@@ -292,8 +304,34 @@ export class ReasoningOrchestratorAgent extends BaseAgent {
           sourceAuthoritative: false,
           multipleSources: false,
         },
-      })),
+      };
+
+      validatedEmails.push(emailCandidate);
+
+      // Store successful email capture in knowledge base
+      if (contractorEntity && emailCandidate.confidence >= 30) {
+        await this.knowledgeService.storeEmailKnowledge({
+          email: emailCandidate.email,
+          rocNumber: contractorEntity.rocNumber,
+          contractorName: contractorEntity.contractorName,
+          confidence: emailCandidate.confidence,
+          sources: [emailCandidate.source, ...(emailCandidate.validationSignals.multipleSources ? ['multiple'] : [])],
+          validated: emailCandidate.validationSignals.mxRecordExists || emailCandidate.validationSignals.smtpCheck,
+        });
+      }
+    }
+
+    return {
+      emails: validatedEmails,
     };
+  }
+
+  /**
+   * Helper to get entity by ID
+   */
+  private async getEntityById(entityId: string): Promise<Entity | null> {
+    // TODO: Implement entity retrieval from database
+    return null;
   }
 
   /**
