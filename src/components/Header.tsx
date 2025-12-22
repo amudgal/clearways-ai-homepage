@@ -1,20 +1,25 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, LogIn, LogOut } from 'lucide-react';
+import { Menu, X, LogIn, LogOut, Settings } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import logo from 'figma:asset/bc56b2cd1a0b77abaa55ba2f68f90ef6c8e0ef44.png';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+  const { user, isAuthenticated } = useAuth();
+  const isLoggedIn = isAuthenticated;
   const isHomePage = location.pathname === '/';
   const isLoginPage = location.pathname === '/login';
+  const isAdmin = user?.role === 'ADMIN';
 
   const isActive = (path: string) => location.pathname === path;
 
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
     navigate('/');
     window.location.reload(); // Refresh to update UI
   };
@@ -71,13 +76,64 @@ export default function Header() {
                     Login
                   </Link>
                 ) : (
-                  <button
-                    onClick={handleLogout}
-                    className="transition-colors flex items-center gap-2 text-gray-700 hover:text-[#17A2B8]"
-                  >
-                    <LogOut size={18} />
-                    Logout
-                  </button>
+                  <>
+                    {isLoggedIn && (
+                      <>
+                        <Link
+                          to="/dashboard"
+                          className={`transition-colors ${
+                            isActive('/dashboard')
+                              ? 'text-[#17A2B8]'
+                              : 'text-gray-700 hover:text-[#17A2B8]'
+                          }`}
+                        >
+                          Analysis
+                        </Link>
+                        {isAdmin && (
+                          <div className="flex items-center gap-4">
+                            <Link
+                              to="/admin/analyses"
+                              className={`transition-colors ${
+                                isActive('/admin/analyses')
+                                  ? 'text-[#17A2B8]'
+                                  : 'text-gray-700 hover:text-[#17A2B8]'
+                              }`}
+                            >
+                              Manage Analyses
+                            </Link>
+                            <Link
+                              to="/admin/tenants"
+                              className={`transition-colors ${
+                                isActive('/admin/tenants')
+                                  ? 'text-[#17A2B8]'
+                                  : 'text-gray-700 hover:text-[#17A2B8]'
+                              }`}
+                            >
+                              Tenants
+                            </Link>
+                            <Link
+                              to="/admin/pricing/table"
+                              className={`transition-colors flex items-center gap-2 ${
+                                isActive('/admin/pricing')
+                                  ? 'text-[#17A2B8]'
+                                  : 'text-gray-700 hover:text-[#17A2B8]'
+                              }`}
+                            >
+                              <Settings size={18} />
+                              Pricing
+                            </Link>
+                          </div>
+                        )}
+                        <button
+                          onClick={handleLogout}
+                          className="transition-colors flex items-center gap-2 text-gray-700 hover:text-[#17A2B8]"
+                        >
+                          <LogOut size={18} />
+                          Logout
+                        </button>
+                      </>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -144,16 +200,63 @@ export default function Header() {
                       Login
                     </Link>
                   ) : (
-                    <button
-                      onClick={() => {
-                        handleLogout();
-                        setIsMenuOpen(false);
-                      }}
-                      className="flex items-center gap-2 text-gray-700"
-                    >
-                      <LogOut size={18} />
-                      Logout
-                    </button>
+                    <>
+                      {isLoggedIn && (
+                        <>
+                          <Link
+                            to="/dashboard"
+                            onClick={() => setIsMenuOpen(false)}
+                            className={`${
+                              isActive('/dashboard') ? 'text-[#17A2B8]' : 'text-gray-700'
+                            }`}
+                          >
+                            Analysis
+                          </Link>
+                          {isAdmin && (
+                            <>
+                              <Link
+                                to="/admin/analyses"
+                                onClick={() => setIsMenuOpen(false)}
+                                className={`${
+                                  isActive('/admin/analyses') ? 'text-[#17A2B8]' : 'text-gray-700'
+                                }`}
+                              >
+                                Manage Analyses
+                              </Link>
+                              <Link
+                                to="/admin/tenants"
+                                onClick={() => setIsMenuOpen(false)}
+                                className={`${
+                                  isActive('/admin/tenants') ? 'text-[#17A2B8]' : 'text-gray-700'
+                                }`}
+                              >
+                                Tenants
+                              </Link>
+                              <Link
+                                to="/admin/pricing/table"
+                                onClick={() => setIsMenuOpen(false)}
+                                className={`flex items-center gap-2 ${
+                                  isActive('/admin/pricing') ? 'text-[#17A2B8]' : 'text-gray-700'
+                                }`}
+                              >
+                                <Settings size={18} />
+                                Pricing
+                              </Link>
+                            </>
+                          )}
+                          <button
+                            onClick={() => {
+                              handleLogout();
+                              setIsMenuOpen(false);
+                            }}
+                            className="flex items-center gap-2 text-gray-700"
+                          >
+                            <LogOut size={18} />
+                            Logout
+                          </button>
+                        </>
+                      )}
+                    </>
                   )}
                 </>
               )}
