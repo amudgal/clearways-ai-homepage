@@ -4,6 +4,20 @@ import { ChevronDown, ChevronUp, Play } from 'lucide-react';
 import { agents } from '../data/agents';
 import InvocationModal from '../components/InvocationModal';
 import AgentLoadingScreen from '../components/AgentLoadingScreen';
+import { toast } from 'sonner';
+
+// API configuration
+const getApiBaseUrl = () => {
+  return import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+};
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('auth_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+};
 
 export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -47,17 +61,70 @@ export default function AgentDetail() {
     setIsRunning(true);
     setRunStatus('Initializing agent...');
     
-    // Simulate agent processing with status updates and reasoning
-    setTimeout(() => {
-      setRunStatus('Querying ROC database...');
+    try {
+      // Parse CSV if file was uploaded
+      let contractorRows: any[] = [];
+      if (input.type === 'file' && input.data instanceof File) {
+        const text = await input.data.text();
+        const lines = text.split('\n').filter(line => line.trim());
+        const headers = lines[0].split(',').map(h => h.trim());
+        
+        contractorRows = lines.slice(1).map((line, idx) => {
+          const values = line.split(',').map(v => v.trim());
+          const row: any = { rowIndex: idx };
+          headers.forEach((header, i) => {
+            row[header.toLowerCase().replace(/\s+/g, '')] = values[i] || '';
+          });
+          return row;
+        });
+      } else if (input.type === 'text') {
+        // Parse text input (one contractor per line or CSV format)
+        const lines = (input.data as string).split('\n').filter(line => line.trim());
+        contractorRows = lines.map((line, idx) => {
+          const parts = line.split(',').map(p => p.trim());
+          return {
+            rowIndex: idx,
+            rocNumber: parts[0] || '',
+            contractorName: parts[1] || parts[0] || '',
+            city: parts[2] || '',
+          };
+        });
+      }
+
+      if (contractorRows.length === 0) {
+        toast.error('No contractor data provided');
+        setIsRunning(false);
+        return;
+      }
+
+      setRunStatus('Creating job...');
+      
+      // Create job via API
+      const createJobResponse = await fetch(`${getApiBaseUrl()}/jobs/upload`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          contractorRows: contractorRows,
+          preferences: {
+            useLLM: true,
+            excludedDomains: [],
+          },
+        }),
+      });
+
+      if (!createJobResponse.ok) {
+        const error = await createJobResponse.json().catch(() => ({ error: 'Failed to create job' }));
+        throw new Error(error.error || 'Failed to start agent job');
+      }
+
+      const jobData = await createJobResponse.json();
+      const jobId = jobData.jobId || jobData.id;
+
+      setRunStatus('Job created. Processing contractors...');
       setReasoning({
         approach: 'roc-first',
-        reasoning: 'Official website found in ROC database. Prioritizing authoritative source first, then expanding search.',
-        searchQueries: [
-          `"${agent.name}" contact email Arizona`,
-          `"${agent.name}" website contact`,
-          `Arizona ROC contractor email`
-        ],
+        reasoning: 'Starting email discovery for contractors. Using LLM to plan strategy based on ROC data.',
+        searchQueries: [],
         prioritySources: ['roc', 'official-website', 'linkedin', 'business-directories'],
         steps: [
           { step: 'ROC Lookup', status: 'active', reasoning: 'Querying Arizona ROC database for contractor information' },
@@ -68,70 +135,75 @@ export default function AgentDetail() {
           { step: 'Validation', status: 'pending', reasoning: 'Validating email addresses and computing confidence scores' },
         ]
       });
-    }, 1000);
-    
-    setTimeout(() => {
-      setRunStatus('Planning email discovery strategy...');
-      setReasoning(prev => ({
-        ...prev,
-        steps: prev.steps.map((s: any, i: number) => 
-          i === 0 ? { ...s, status: 'completed' } : 
-          i === 1 ? { ...s, status: 'active' } : s
-        )
-      }));
-    }, 2000);
-    
-    setTimeout(() => {
-      setRunStatus('Generating search queries...');
-      setReasoning(prev => ({
-        ...prev,
-        steps: prev.steps.map((s: any, i: number) => 
-          i === 1 ? { ...s, status: 'completed' } : 
-          i === 2 ? { ...s, status: 'active' } : s
-        )
-      }));
-    }, 3000);
-    
-    setTimeout(() => {
-      setRunStatus('Discovering sources...');
-      setReasoning(prev => ({
-        ...prev,
-        steps: prev.steps.map((s: any, i: number) => 
-          i === 2 ? { ...s, status: 'completed' } : 
-          i === 3 ? { ...s, status: 'active' } : s
-        )
-      }));
-    }, 4000);
-    
-    setTimeout(() => {
-      setRunStatus('Validating results...');
-      setReasoning(prev => ({
-        ...prev,
-        steps: prev.steps.map((s: any, i: number) => 
-          i === 3 ? { ...s, status: 'completed' } : 
-          i === 4 ? { ...s, status: 'active' } : s
-        )
-      }));
-    }, 5000);
-    
-    setTimeout(() => {
-      setRunStatus('Finalizing...');
-      setReasoning(prev => ({
-        ...prev,
-        steps: prev.steps.map((s: any, i: number) => 
-          i === 4 ? { ...s, status: 'completed' } : 
-          i === 5 ? { ...s, status: 'active' } : s
-        )
-      }));
-    }, 6000);
-    
-    // After processing, navigate to results
-    setTimeout(() => {
+
+      // Poll for job completion or use SSE for real-time updates
+      const pollJobStatus = async () => {
+        const maxAttempts = 120; // 10 minutes max
+        let attempts = 0;
+
+        const checkStatus = async () => {
+          try {
+            const statusResponse = await fetch(`${getApiBaseUrl()}/jobs/${jobId}`, {
+              headers: getAuthHeaders(),
+            });
+
+            if (!statusResponse.ok) {
+              throw new Error('Failed to check job status');
+            }
+
+            const job = await statusResponse.json();
+            
+            // Update reasoning with actual strategy if available
+            if (job.strategy) {
+              setReasoning((prev: any) => ({
+                ...prev,
+                approach: job.strategy.approach,
+                reasoning: job.strategy.reasoning,
+                searchQueries: job.strategy.searchQueries || prev.searchQueries,
+              }));
+            }
+
+            // Update status
+            if (job.status === 'processing') {
+              setRunStatus(`Processing ${job.processedCount || 0} of ${contractorRows.length} contractors...`);
+            } else if (job.status === 'completed') {
+              setIsRunning(false);
+              navigate(`/agents/${agent.id}/results`, {
+                state: {
+                  input,
+                  agent,
+                  reasoning,
+                  jobId,
+                  job,
+                },
+              });
+              return;
+            } else if (job.status === 'failed') {
+              throw new Error(job.error || 'Job failed');
+            }
+
+            attempts++;
+            if (attempts < maxAttempts && job.status !== 'completed' && job.status !== 'failed') {
+              setTimeout(checkStatus, 5000); // Poll every 5 seconds
+            } else if (attempts >= maxAttempts) {
+              throw new Error('Job timeout - taking too long');
+            }
+          } catch (error) {
+            console.error('Error checking job status:', error);
+            toast.error(error instanceof Error ? error.message : 'Failed to check job status');
+            setIsRunning(false);
+          }
+        };
+
+        checkStatus();
+      };
+
+      pollJobStatus();
+    } catch (error) {
+      console.error('Error running agent:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to run agent');
       setIsRunning(false);
-      navigate(`/agents/${agent.id}/results`, { 
-        state: { input, agent, reasoning } 
-      });
-    }, 7000);
+    }
   };
 
   const estimatedCost = agent.usageCost.type === 'per-record'

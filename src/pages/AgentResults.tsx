@@ -2,6 +2,20 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Download, Star, ArrowRight, RefreshCw, AlertCircle, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import AgentLoadingScreen from '../components/AgentLoadingScreen';
+import { toast } from 'sonner';
+
+// API configuration
+const getApiBaseUrl = () => {
+  return import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+};
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('auth_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+};
 
 interface Result {
   id: string;
@@ -13,65 +27,103 @@ interface Result {
 export default function AgentResults() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { input, agent, reasoning } = location.state || {};
+  const { input, agent, reasoning, jobId, job: initialJob } = location.state || {};
   const [rating, setRating] = useState(0);
   const [showRatingThank, setShowRatingThank] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState('Loading results...');
   const [showReasoning, setShowReasoning] = useState(true);
-
-  // All sources used (including newly discovered ones)
-  const allSourcesUsed = [
-    ...(agent?.sources || []),
-    'Public Records Archive', // Newly discovered
-    'Business Directory API', // Newly discovered
-  ];
+  const [results, setResults] = useState<Result[]>([]);
+  const [job, setJob] = useState<any>(initialJob);
+  const [allSourcesUsed, setAllSourcesUsed] = useState<string[]>([]);
 
   const [excludedSources, setExcludedSources] = useState<string[]>([]);
   const [showSourceManager, setShowSourceManager] = useState(false);
   const [isRerunning, setIsRerunning] = useState(false);
 
-  // Simulate loading when component first mounts
+  // Load job results from API
   useEffect(() => {
-    if (!agent) {
-      setIsLoading(false);
-      return;
-    }
+    const loadResults = async () => {
+      if (!agent) {
+        setIsLoading(false);
+        return;
+      }
 
-    // Simulate processing time
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
+      // If we have a jobId, fetch the job results
+      if (jobId) {
+        try {
+          const response = await fetch(`${getApiBaseUrl()}/jobs/${jobId}`, {
+            headers: getAuthHeaders(),
+          });
 
-    return () => clearTimeout(timer);
-  }, [agent]);
+          if (response.ok) {
+            const jobData = await response.json();
+            setJob(jobData);
 
-  // Mock results - in production, these would come from API
-  const mockResults: Result[] = Array.from({ length: 5 }, (_, i) => ({
-    id: `result-${i + 1}`,
-    data:
-      agent?.id === 'az-roc-emails'
-        ? {
-            'Contractor Name': `Sample Contractor ${i + 1}`,
-            'Email': `contact${i + 1}@contractor.com`,
-            'ROC License': `ROC${300000 + i}`,
-            'Phone': `(602) 555-${1000 + i}`,
+            // Extract email candidates from entities
+            const emailResults: Result[] = [];
+            const sourcesSet = new Set<string>();
+
+            if (jobData.entities && Array.isArray(jobData.entities)) {
+              jobData.entities.forEach((entity: any) => {
+                if (entity.emailCandidates && Array.isArray(entity.emailCandidates)) {
+                  entity.emailCandidates.forEach((candidate: any) => {
+                    // Collect sources
+                    if (candidate.source) {
+                      sourcesSet.add(candidate.source);
+                    }
+                    if (candidate.evidence && Array.isArray(candidate.evidence)) {
+                      candidate.evidence.forEach((ev: any) => {
+                        if (ev.source) sourcesSet.add(ev.source);
+                      });
+                    }
+
+                    // Create result
+                    emailResults.push({
+                      id: candidate.id || `email-${emailResults.length}`,
+                      data: {
+                        'Contractor Name': entity.contractorName || entity.businessName || 'Unknown',
+                        'Email': candidate.email,
+                        'ROC License': entity.rocNumber || 'N/A',
+                        'Phone': entity.phone || 'N/A',
+                        'Business Name': entity.businessName || entity.contractorName || 'N/A',
+                        'Address': entity.address || 'N/A',
+                      },
+                      confidence: candidate.confidence || 0,
+                      sources: [
+                        candidate.source,
+                        ...(candidate.evidence?.map((e: any) => e.source) || []),
+                      ].filter(Boolean),
+                    });
+                  });
+                }
+              });
+            }
+
+            setResults(emailResults);
+            setAllSourcesUsed([
+              ...(agent.sources || []),
+              ...Array.from(sourcesSet),
+            ]);
+          } else {
+            console.error('Failed to load job results');
+            toast.error('Failed to load results');
           }
-        : agent?.id === 'property-comps'
-        ? {
-            'Address': `${1000 + i} Main St, Phoenix, AZ`,
-            'Sale Price': `$${(450000 + i * 25000).toLocaleString()}`,
-            'Price/SqFt': `$${(250 + i * 10)}`,
-            'Beds/Baths': `${3 + (i % 2)}/${2 + (i % 2)}`,
-          }
-        : {
-            'Record': `Data ${i + 1}`,
-            'Value': `Result ${i + 1}`,
-            'Status': 'Verified',
-          },
-    confidence: 85 + Math.floor(Math.random() * 10),
-    sources: agent?.sources.slice(0, 2 + (i % 2)) || ['Source 1', 'Source 2'],
-  }));
+        } catch (error) {
+          console.error('Error loading results:', error);
+          toast.error('Error loading results');
+        }
+      } else {
+        // No jobId - use mock data for demo
+        setResults([]);
+        setAllSourcesUsed(agent.sources || []);
+      }
+
+      setIsLoading(false);
+    };
+
+    loadResults();
+  }, [agent, jobId]);
 
   // Show loading screen while processing
   if (isLoading && agent) {
@@ -116,8 +168,13 @@ export default function AgentResults() {
   };
 
   const exportResults = (format: 'json' | 'csv') => {
+    if (results.length === 0) {
+      toast.error('No results to export');
+      return;
+    }
+
     if (format === 'json') {
-      const dataStr = JSON.stringify(mockResults, null, 2);
+      const dataStr = JSON.stringify(results, null, 2);
       const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
       const exportFileDefaultName = `${agent.id}-results.json`;
       const linkElement = document.createElement('a');
@@ -126,10 +183,10 @@ export default function AgentResults() {
       linkElement.click();
     } else {
       // CSV export
-      const headers = Object.keys(mockResults[0].data);
+      const headers = Object.keys(results[0].data);
       const csvContent = [
         headers.join(','),
-        ...mockResults.map((r) => headers.map((h) => r.data[h]).join(',')),
+        ...results.map((r) => headers.map((h) => r.data[h]).join(',')),
       ].join('\n');
       const dataUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`;
       const exportFileDefaultName = `${agent.id}-results.csv`;
@@ -158,7 +215,8 @@ export default function AgentResults() {
           </button>
           <h1 className="text-gray-900 mb-2">{agent.name} Results</h1>
           <p className="text-gray-600">
-            {mockResults.length} results processed
+            {results.length} email{results.length !== 1 ? 's' : ''} found
+            {job?.contractorRows && ` from ${job.contractorRows.length} contractor${job.contractorRows.length !== 1 ? 's' : ''}`}
           </p>
         </div>
 
@@ -381,57 +439,72 @@ export default function AgentResults() {
           </div>
 
           {/* Results Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  {Object.keys(mockResults[0].data).map((header) => (
-                    <th
-                      key={header}
-                      className="px-6 py-3 text-left text-gray-700"
-                    >
-                      {header}
-                    </th>
-                  ))}
-                  <th className="px-6 py-3 text-left text-gray-700">
-                    Confidence
-                  </th>
-                  <th className="px-6 py-3 text-left text-gray-700">
-                    Sources
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {mockResults.map((result) => (
-                  <tr key={result.id} className="hover:bg-gray-50">
-                    {Object.values(result.data).map((value, idx) => (
-                      <td key={idx} className="px-6 py-4 text-gray-700">
-                        {value}
-                      </td>
+          {results.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    {Object.keys(results[0].data).map((header) => (
+                      <th
+                        key={header}
+                        className="px-6 py-3 text-left text-gray-700"
+                      >
+                        {header}
+                      </th>
                     ))}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
-                          <div
-                            className="bg-[#17A2B8] h-2 rounded-full"
-                            style={{ width: `${result.confidence}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm text-gray-700">
-                          {result.confidence}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-600">
-                        {result.sources.join(', ')}
-                      </div>
-                    </td>
+                    <th className="px-6 py-3 text-left text-gray-700">
+                      Confidence
+                    </th>
+                    <th className="px-6 py-3 text-left text-gray-700">
+                      Sources
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {results.map((result) => (
+                    <tr key={result.id} className="hover:bg-gray-50">
+                      {Object.values(result.data).map((value, idx) => (
+                        <td key={idx} className="px-6 py-4 text-gray-700">
+                          {value}
+                        </td>
+                      ))}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
+                            <div
+                              className={`h-2 rounded-full ${
+                                result.confidence >= 80
+                                  ? 'bg-green-600'
+                                  : result.confidence >= 50
+                                  ? 'bg-yellow-500'
+                                  : 'bg-red-500'
+                              }`}
+                              style={{ width: `${result.confidence}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-gray-700">
+                            {result.confidence}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-600">
+                          {result.sources.join(', ')}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-600 mb-4">No results found</p>
+              <p className="text-sm text-gray-500">
+                The agent is still processing or no emails were discovered.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Rating Section */}
