@@ -1217,16 +1217,16 @@ export default function AnalysisForm() {
     
     // If no defaults available (costs not calculated yet), return existing or empty array
     if (!defaultRows || defaultRows.length === 0) {
-      return existing || [];
+      return Array.isArray(existing) ? existing : [];
     }
     
     if (!existing || existing.length === 0) {
       // If no existing rows, return defaults (state will be initialized by useEffect)
-      return defaultRows;
+      return Array.isArray(defaultRows) ? defaultRows : [];
     }
     
     // Get IDs of existing rows to check which defaults should be included
-    const existingIds = new Set(existing.map(r => r.id));
+    const existingIds = new Set(Array.isArray(existing) ? existing.map(r => r.id) : []);
     
     // Merge defaults with existing, but only include default rows that still exist (not deleted)
     // For cost values: use calculated default value for numeric costs (to match subtotals),
@@ -3586,7 +3586,7 @@ export default function AnalysisForm() {
                     </tr>
                   </thead>
                   <tbody>
-                    {getTableRows('negotiated-licensing').map((row, index) => 
+                    {(getTableRows('negotiated-licensing') || []).map((row, index) => 
                       renderEditableRow('negotiated-licensing', row, false)
                     )}
                     <tr className="bg-[#2C5F7C] text-white">
@@ -3646,7 +3646,7 @@ export default function AnalysisForm() {
                     </tr>
                   </thead>
                   <tbody>
-                    {getTableRows('metered-costs').map((row, index) => 
+                    {(getTableRows('metered-costs') || []).map((row, index) => 
                       renderEditableRow('metered-costs', row, false)
                     )}
                     <tr className="bg-[#2C5F7C] text-white">
@@ -3706,7 +3706,7 @@ export default function AnalysisForm() {
                     </tr>
                   </thead>
                   <tbody>
-                    {getTableRows('support-costs').map((row, index) => 
+                    {(getTableRows('support-costs') || []).map((row, index) => 
                       renderEditableRow('support-costs', row, false)
                     )}
                     <tr className="bg-[#2C5F7C] text-white">
@@ -3766,7 +3766,7 @@ export default function AnalysisForm() {
                     </tr>
                   </thead>
                   <tbody>
-                    {getTableRows('total-costs').map((row, index) => 
+                    {(getTableRows('total-costs') || []).map((row, index) => 
                       renderEditableRow('total-costs', row, false)
                     )}
                     <tr className="bg-gradient-to-r from-[#17A2B8] to-[#2C5F7C] text-white font-bold" style={{ backgroundColor: '#17A2B8' }}>
@@ -3832,7 +3832,7 @@ export default function AnalysisForm() {
                     </tr>
                   </thead>
                   <tbody>
-                    {getTableRows('architecture-choice-costs').map((row, index) => 
+                    {(getTableRows('architecture-choice-costs') || []).map((row, index) => 
                       renderEditableRow('architecture-choice-costs', row, false)
                     )}
                   </tbody>
