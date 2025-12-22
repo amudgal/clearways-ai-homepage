@@ -10,3 +10,153 @@ datasource db {
   provider = "postgresql"
   // Note: In Prisma 7+, the url is configured in prisma.config.ts
 }
+
+// Agent System Models
+
+model Subscription {
+  id                String   @id @default(uuid())
+  userId            String
+  stripeCustomerId  String?  @unique
+  stripeSubscriptionId String? @unique
+  status            String
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Job {
+  id                String   @id @default(uuid())
+  createdBy         String
+  status            String   @default("pending")
+  preferences       Json?
+  budgetCap         Decimal? @db.Decimal(15, 2)
+  totalCost         Decimal  @default(0) @db.Decimal(15, 2)
+  currency          String   @default("USD")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  startedAt         DateTime?
+  completedAt       DateTime?
+  
+  contractorRows    ContractorInputRow[]
+  entities          Entity[]
+  visitedSites      VisitedSiteLog[]
+  costLineItems     CostLineItem[]
+
+  @@index([createdBy])
+  @@index([status])
+}
+
+model ContractorInputRow {
+  id                String   @id @default(uuid())
+  jobId             String
+  rocNumber         String?
+  contractorName    String
+  licenseStatus     String?
+  classification    String?
+  city              String?
+  phone             String?
+  website           String?
+  rowIndex          Int
+  processed         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  job               Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+}
+
+model Entity {
+  id                String   @id @default(uuid())
+  jobId             String
+  contractorInputRowId String?
+  rocNumber         String?
+  contractorName    String
+  businessName      String?
+  officialWebsite   String?
+  address           String?
+  phone             String?
+  classification    String?
+  licenseStatus     String?
+  metadata          Json?
+
+  job               Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  emailCandidates   EmailCandidate[]
+  evidence          Evidence[]
+
+  @@index([jobId])
+  @@index([contractorInputRowId])
+}
+
+model EmailCandidate {
+  id                String   @id @default(uuid())
+  entityId          String
+  email             String
+  source            String
+  sourceUrl         String?
+  confidence        Int      @default(0)
+  rationale         String?
+  validationSignals Json?
+  validated         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  entity            Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  evidence          Evidence[]
+
+  @@index([entityId])
+  @@index([email])
+}
+
+model Evidence {
+  id                String   @id @default(uuid())
+  entityId          String?
+  emailCandidateId  String?
+  type              String
+  source            String
+  content           String?
+  url               String?
+  timestamp         DateTime @default(now())
+
+  entity            Entity?  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  emailCandidate    EmailCandidate? @relation(fields: [emailCandidateId], references: [id], onDelete: Cascade)
+
+  @@index([entityId])
+  @@index([emailCandidateId])
+}
+
+model VisitedSiteLog {
+  id                String   @id @default(uuid())
+  jobId             String
+  entityId          String?
+  url               String
+  startedAt         DateTime @default(now())
+  completedAt       DateTime?
+  success           Boolean  @default(false)
+  error             String?
+  robotsTxtRespected Boolean @default(true)
+
+  job               Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([entityId])
+}
+
+model CostLineItem {
+  id                String   @id @default(uuid())
+  jobId             String
+  entityId          String?
+  category          String
+  description       String
+  unitCost          Decimal  @db.Decimal(15, 2)
+  quantity          Int      @default(1)
+  totalCost         Decimal  @db.Decimal(15, 2)
+  currency          String   @default("USD")
+  timestamp         DateTime @default(now())
+
+  job               Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([entityId])
+}
