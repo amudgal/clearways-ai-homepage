@@ -12,6 +12,7 @@ import authRoutes from './routes/auth';
 import analysisRoutes from './routes/analysis';
 import pricingRoutes from './routes/pricing';
 import adminRoutes from './routes/admin';
+import jobsRoutes from './routes/jobs';
 
 dotenv.config();
 
@@ -75,6 +76,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/jobs', jobsRoutes);
 
 // 404 handler
 app.use((req, res) => {
