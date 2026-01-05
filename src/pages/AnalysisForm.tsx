@@ -2534,8 +2534,18 @@ export default function AnalysisForm() {
 
     setIsSaving(true);
     try {
-      // Use override content if provided, otherwise use state
+      // CRITICAL: Use override content if provided, otherwise use current state
+      // If no override, we need to ensure we're using the most up-to-date state
+      // Use a function to get the latest state value
       const contentToUse = contentOverride || editableContent;
+      
+      // Log what we're about to save for debugging
+      console.log('handleSave called with:', {
+        hasContentOverride: !!contentOverride,
+        hasEditableContent: !!editableContent,
+        contentKeys: contentToUse ? Object.keys(contentToUse) : [],
+        timelineDataExists: !!(contentToUse as any)?.timelineData,
+      });
       
       // For Timeline analysis, ensure we have timelineData in editableContent
       if (analysisType === 'TIMELINE') {

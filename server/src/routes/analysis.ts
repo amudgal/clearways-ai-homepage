@@ -484,17 +484,24 @@ router.post('/:id/save', enforceTenantIsolation, async (req: AuthRequest, res) =
       }
 
       // Create new version with editable content
-      if (editable_content) {
+      // Always save editable_content, even if it's an empty object (to preserve the version)
+      // Check if editable_content exists and is not null/undefined
+      if (editable_content !== null && editable_content !== undefined) {
         // Log what we're receiving for debugging
         console.log('Saving editable_content to database:', JSON.stringify(editable_content, null, 2));
         console.log('Timeline data:', editable_content.timelineData);
+        console.log('Editable content keys:', Object.keys(editable_content || {}));
         
         // editable_content should already be an object, not a string
-        // PostgreSQL JSONB column accepts objects directly
+        // PostgreSQL JSONB column accepts objects directly, but we need to stringify for the query
+        const contentToSave = typeof editable_content === 'string' 
+          ? editable_content 
+          : JSON.stringify(editable_content);
+        
         await pool.query(
           `INSERT INTO site_analysis_versions (analysis_id, version_number, editable_content, created_by)
-           VALUES ($1, $2, $3, $4)`,
-          [id, newVersionNumber, JSON.stringify(editable_content), userId]
+           VALUES ($1, $2, $3::jsonb, $4)`,
+          [id, newVersionNumber, contentToSave, userId]
         );
         
         // Verify what was saved
@@ -504,7 +511,18 @@ router.post('/:id/save', enforceTenantIsolation, async (req: AuthRequest, res) =
         );
         if (verifyResult.rows.length > 0) {
           console.log('Verified saved content:', JSON.stringify(verifyResult.rows[0].editable_content, null, 2));
+          console.log('Verified content keys:', Object.keys(verifyResult.rows[0].editable_content || {}));
+        } else {
+          console.error('ERROR: Failed to verify saved content - version not found after insert!');
         }
+      } else {
+        console.warn('WARNING: editable_content is null or undefined, saving empty version');
+        // Save empty object to preserve the version
+        await pool.query(
+          `INSERT INTO site_analysis_versions (analysis_id, version_number, editable_content, created_by)
+           VALUES ($1, $2, $3::jsonb, $4)`,
+          [id, newVersionNumber, JSON.stringify({}), userId]
+        );
       }
 
       await pool.query('COMMIT');
